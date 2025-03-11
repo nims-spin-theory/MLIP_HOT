@@ -155,17 +155,18 @@ def opt_with_symmetry_mod(
     # ecf = FrechetCellFilter(atoms, hydrostatic_strain=False)
     ecf = StrainFilter(atoms)
     opt = FIRE(ecf, logfile=None, maxstep=0.01, downhill_check=True, Nmin=20)
-    opt.run(fmax=0.001, steps=100)
+    opt.run(fmax=0.001, steps=10)
 
     return atoms
     
 def opt_loop_row(row_calc):
 
     row, calc = row_calc
-
+    
     structure, spacegroup_symbol = get_structure(row)
     structure = get_conven_structure(structure, spacegroup_symbol)
-
+    # structure.apply_strain([0.1,0.1,0.2])  # apply strain to test more realistic performance.
+    
     DFT_a  = structure.lattice.matrix[0,0]
     DFT_c  = structure.lattice.matrix[2,2]
     DFT_ca = structure.lattice.matrix[2,2]/structure.lattice.matrix[0,0]
@@ -195,6 +196,7 @@ def opt_loop_row(row_calc):
 
 import argparse
 import multiprocessing as mp
+import dill 
 chgnet = CHGNet.load()
 
 if __name__ == "__main__":
@@ -204,7 +206,7 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--type",         type=str, required=True, help="type of compounds. full/inverse/half")
     parser.add_argument("-p", "--phase",        type=str, required=True, help="phase of compounds. cubic/tetra")
     parser.add_argument("-c", "--core",         type=int, required=True, help="core number for parallel")
-    parser.add_argument("-m", "--model",        type=str, required=True, help="ML-FF model  chgnet/")
+    parser.add_argument("-m", "--model",        type=str, required=True, help="ML-FF model  chgnet/7net-0/7net-l3i5")
     parser.add_argument("-o", "--output",       type=str, required=True, help="output dir")
     args = parser.parse_args()
 
@@ -216,30 +218,33 @@ if __name__ == "__main__":
     db = db[db['phase']==args.phase].copy()
     print('test database shape: ', db.shape)
 
-    # db_test   = db.copy()
-    db_test = db.sample(24).copy()
-    rows    = db_test.to_dict(orient="records")
-
-    # set progress bar
-    pbar = tqdm(total=len(rows))
-    def update(*args):
-        """Update the progress bar"""
-        pbar.update()
-
     # input model
     if args.model=='chgnet':
         from chgnet.model.dynamics import CHGNetCalculator
         calc   = CHGNetCalculator(use_device='cpu')
+    elif args.model=='7net-0':
+        from sevenn.calculator import SevenNetCalculator
+        calc   = SevenNetCalculator(model=args.model, device='cpu')
+    elif args.model=='7net-l3i5':
+        from sevenn.calculator import SevenNetCalculator
+        calc   = SevenNetCalculator(model=args.model, device='cpu')
+        
+    # db_test   = db.copy()
+    db_test = db.sample(24).copy()
+    rows    = db_test.to_dict(orient="records")
+    rows    = [(row, calc) for row in rows]
 
-    # optmization and loop over db
-    with mp.Pool(args.core) as pool:
-        results = [pool.apply_async(opt_loop_row, ([row, calc],), callback=update) for row in rows]
-        output = [r.get() for r in results]  # Get results
+    # with mp.Pool(processes=args.core) as pool:
+    #     results = pool.starmap(opt_loop_row, rows)
 
+    with mp.Pool(processes=args.core) as pool:
+        pool._pickler = dill 
+        results = pool.map(opt_loop_row, rows)
+            
     # update db
     if args.model=='chgnet':
         db_test[['ML_cell','ML_a', 'ML_c', 'ML_ca', 'DFT_a', 'DFT_c', 'DFT_ca', 'ML_e', 'ML_m']] \
-                  = output
+                  = results
 
     # save db 
     db_name = args.database_csv.split("/")[-1].split('.')[0]
