@@ -155,7 +155,7 @@ def opt_with_symmetry_mod(
     # ecf = FrechetCellFilter(atoms, hydrostatic_strain=False)
     ecf = StrainFilter(atoms)
     opt = FIRE(ecf, logfile=None, maxstep=0.01, downhill_check=True, Nmin=20)
-    opt.run(fmax=0.001, steps=100)
+    opt.run(fmax=0.001, steps=5000)
 
     return atoms
     
@@ -173,6 +173,9 @@ def opt_loop_row(row_model):
     elif model=='7net-l3i5':
         from sevenn.calculator import SevenNetCalculator
         calc   = SevenNetCalculator(model=model, device='cpu')
+    elif model=='mattersim':
+        from mattersim.forcefield import MatterSimCalculator
+        calc = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device="cpu")
 
     # get conventional cell with 2 fu
     structure, spacegroup_symbol = get_structure(row)
@@ -208,7 +211,6 @@ def opt_loop_row(row_model):
 
 import argparse
 import multiprocessing as mp
-import dill 
 chgnet = CHGNet.load()
 
 if __name__ == "__main__":
@@ -218,7 +220,7 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--type",         type=str, required=True, help="type of compounds. full/inverse/half")
     parser.add_argument("-p", "--phase",        type=str, required=True, help="phase of compounds. cubic/tetra")
     parser.add_argument("-c", "--core",         type=int, required=True, help="core number for parallel")
-    parser.add_argument("-m", "--model",        type=str, required=True, help="ML-FF model  chgnet/7net-0/7net-l3i5")
+    parser.add_argument("-m", "--model",        type=str, required=True, help="ML-FF model  chgnet/7net-0/7net-l3i5/mattersim")
     parser.add_argument("-o", "--output",       type=str, required=True, help="output dir")
     args = parser.parse_args()
 
@@ -236,7 +238,6 @@ if __name__ == "__main__":
     rows    = [(row, args.model) for row in rows]
 
     with mp.Pool(processes=args.core) as pool:
-        pool._pickler = dill 
         results = pool.map(opt_loop_row, rows)
             
     # update db
