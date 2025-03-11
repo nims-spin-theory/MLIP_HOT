@@ -132,37 +132,33 @@ def prepare_db(db):
     db = db[cols].copy()
     return db
 
-def Relax_db(test_db, relaxer):
-    # test optimization
-    for ind,row in tqdm(test_db.iterrows(), total=test_db.shape[0]):
+def Relax_db(row):
+
+    structure, spacegroup_symbol = get_structure(row)
+    structure = get_conven_structure(structure, spacegroup_symbol)
+    # print(structure)
+
+    DFT_a  = structure.lattice.matrix[0,0]
+    DFT_c  = structure.lattice.matrix[2,2]
+    DFT_ca = structure.lattice.matrix[2,2]/structure.lattice.matrix[0,0]
+
+    # do relaxation
+    # structure.apply_strain([0.05,0.05,0.1])
+    result = relaxer.relax(structure, verbose=False, steps=5000,
+                           ase_filter=StrainFilter, \
+                           fmax=0.0001, maxstep=0.01, downhill_check=True, Nmin=20)
+    ML_a  = result["final_structure"].lattice.matrix[0,0]
+    ML_c  = result["final_structure"].lattice.matrix[2,2]
+    ML_ca = result["final_structure"].lattice.matrix[2,2]/result["final_structure"].lattice.matrix[0,0]
+
+    prediction = chgnet.predict_structure(structure)
+    ML_e = prediction['e']
+    ML_m = prediction['m']
+    ML_m = str([float(i) for i in ML_m])
+
+    # test_db.loc[ind, ['ML_e', 'ML_m']] = [ML_e, ML_m]
     
-        structure, spacegroup_symbol = get_structure(row)
-        structure = get_conven_structure(structure, spacegroup_symbol)
-        # print(structure)
-    
-        DFT_a  = structure.lattice.matrix[0,0]
-        DFT_c  = structure.lattice.matrix[2,2]
-        DFT_ca = structure.lattice.matrix[2,2]/structure.lattice.matrix[0,0]
-        
-        # structure.apply_strain([0.05,0.05,0.2])
-        result = relaxer.relax(structure, verbose=False, steps=5000,
-                               ase_filter=StrainFilter, \
-                               fmax=0.0001, maxstep=0.01, downhill_check=True, Nmin=20)
-        ML_a  = result["final_structure"].lattice.matrix[0,0]
-        ML_c  = result["final_structure"].lattice.matrix[2,2]
-        ML_ca = result["final_structure"].lattice.matrix[2,2]/result["final_structure"].lattice.matrix[0,0]
-    
-        test_db.loc[ind, ['ML_a', 'ML_c', 'ML_ca']]    = [ML_a, ML_c, ML_ca]
-        test_db.loc[ind, ['DFT_a', 'DFT_c', 'DFT_ca']] = [DFT_a, DFT_c, DFT_ca]
-    
-        prediction = chgnet.predict_structure(structure)
-        ML_e = prediction['e']
-        ML_m = prediction['m']
-        ML_m = str([float(i) for i in ML_m])
-    
-        test_db.loc[ind, ['ML_e', 'ML_m']] = [ML_e, ML_m]
-        
-    return test_db
+    return [ML_a, ML_c, ML_ca, DFT_a, DFT_c, DFT_ca, ML_e, ML_m]
 
 
 # input model
@@ -170,6 +166,7 @@ chgnet = CHGNet.load()
 relaxer = StructOptimizer()
 
 import argparse
+import multiprocessing as mp
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="A script that test structure optmization via CHGNet.")
@@ -177,6 +174,7 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--database_csv", type=str, required=True, help="Path to the db csv file.")
     parser.add_argument("-t", "--type",         type=str, required=True, help="type of compounds. full/inverse/half")
     parser.add_argument("-p", "--phase",        type=str, required=True, help="phase of compounds. cubic/tetra")
+    parser.add_argument("-c", "--core",         type=int, required=True, help="core number for parallel")
     args = parser.parse_args()
 
     db = pd.read_csv(args.database_csv, index_col=0)
@@ -187,12 +185,27 @@ if __name__ == "__main__":
     db = db[db['phase']==args.phase].copy()
     print('test database shape: ', db.shape)
 
-    db_test   = db.copy()
-    # db_test   = db.sample(10).copy()
-    db_result = Relax_db(db_test, relaxer)
-
+    # db_test   = db.copy()
+    # db_test   = db.sample(20).copy()
+    # db_result = Relax_db(db_test, relaxer)
+    
+    db_test = db.sample(24).copy()
+    rows    = db_test.to_dict(orient="records")
+    
+    pbar = tqdm(total=len(rows))
+    def update(*args):
+        """Update the progress bar"""
+        pbar.update()
+        
+    with mp.Pool(args.core) as pool:
+        results = [pool.apply_async(Relax_db, (row,), callback=update) for row in rows]
+        output = [r.get() for r in results]  # Get results
+            
+    db_test[['ML_a', 'ML_c', 'ML_ca', 'DFT_a', 'DFT_c', 'DFT_ca', 'ML_e', 'ML_m']] \
+              = output
+    
     db_name = args.database_csv.split("/")[-1].split('.')[0]
-    db_result.to_csv(f'./result/{db_name}_{args.type}_{args.phase}.csv')
+    db_test.to_csv(f'./result/{db_name}_{args.type}_{args.phase}.csv')
 
 
 
