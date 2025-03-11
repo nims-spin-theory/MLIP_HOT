@@ -155,11 +155,11 @@ def opt_with_symmetry_mod(
     # ecf = FrechetCellFilter(atoms, hydrostatic_strain=False)
     ecf = StrainFilter(atoms)
     opt = FIRE(ecf, logfile=None, maxstep=0.01, downhill_check=True, Nmin=20)
-    opt.run(fmax=0.001, steps=5000)
+    opt.run(fmax=0.001, steps=100)
 
     return atoms
     
-def Relax_db(row_calc):
+def opt_loop_row(row_calc):
 
     row, calc = row_calc
 
@@ -181,7 +181,8 @@ def Relax_db(row_calc):
     ML_a  = final_structure.lattice.matrix[0,0]
     ML_c  = final_structure.lattice.matrix[2,2]
     ML_ca = final_structure.lattice.matrix[2,2]/final_structure.lattice.matrix[0,0]
-
+    ML_cell = str(structure.lattice.matrix.tolist())
+    
     prediction = chgnet.predict_structure(final_structure)
     ML_e = prediction['e']
     ML_m = prediction['m']
@@ -189,12 +190,11 @@ def Relax_db(row_calc):
 
     # test_db.loc[ind, ['ML_e', 'ML_m']] = [ML_e, ML_m]
     
-    return [ML_a, ML_c, ML_ca, DFT_a, DFT_c, DFT_ca, ML_e, ML_m]
+    return [ML_cell, ML_a, ML_c, ML_ca, DFT_a, DFT_c, DFT_ca, ML_e, ML_m]
 
 
 import argparse
 import multiprocessing as mp
-from chgnet.model.dynamics import CHGNetCalculator
 chgnet = CHGNet.load()
 
 if __name__ == "__main__":
@@ -204,6 +204,8 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--type",         type=str, required=True, help="type of compounds. full/inverse/half")
     parser.add_argument("-p", "--phase",        type=str, required=True, help="phase of compounds. cubic/tetra")
     parser.add_argument("-c", "--core",         type=int, required=True, help="core number for parallel")
+    parser.add_argument("-m", "--model",        type=str, required=True, help="ML-FF model  chgnet/")
+    parser.add_argument("-o", "--output",       type=str, required=True, help="output dir")
     args = parser.parse_args()
 
     db = pd.read_csv(args.database_csv, index_col=0)
@@ -217,24 +219,32 @@ if __name__ == "__main__":
     # db_test   = db.copy()
     db_test = db.sample(24).copy()
     rows    = db_test.to_dict(orient="records")
-    
+
+    # set progress bar
     pbar = tqdm(total=len(rows))
     def update(*args):
         """Update the progress bar"""
         pbar.update()
 
     # input model
-    calc   = CHGNetCalculator(use_device='cpu')
+    if args.model=='chgnet':
+        from chgnet.model.dynamics import CHGNetCalculator
+        calc   = CHGNetCalculator(use_device='cpu')
 
+    # optmization and loop over db
     with mp.Pool(args.core) as pool:
-        results = [pool.apply_async(Relax_db, ([row, calc],), callback=update) for row in rows]
+        results = [pool.apply_async(opt_loop_row, ([row, calc],), callback=update) for row in rows]
         output = [r.get() for r in results]  # Get results
-            
-    db_test[['ML_a', 'ML_c', 'ML_ca', 'DFT_a', 'DFT_c', 'DFT_ca', 'ML_e', 'ML_m']] \
-              = output
-    
+
+    # update db
+    if args.model=='chgnet':
+        db_test[['ML_cell','ML_a', 'ML_c', 'ML_ca', 'DFT_a', 'DFT_c', 'DFT_ca', 'ML_e', 'ML_m']] \
+                  = output
+
+    # save db 
     db_name = args.database_csv.split("/")[-1].split('.')[0]
-    db_test.to_csv(f'./result/{db_name}_{args.type}_{args.phase}.csv')
+    os.makedirs(args.output, exist_ok=True)
+    db_test.to_csv(f'./{args.output}/{db_name}_{args.type}_{args.phase}.csv')
 
 
 
