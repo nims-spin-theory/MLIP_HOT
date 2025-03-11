@@ -155,18 +155,31 @@ def opt_with_symmetry_mod(
     # ecf = FrechetCellFilter(atoms, hydrostatic_strain=False)
     ecf = StrainFilter(atoms)
     opt = FIRE(ecf, logfile=None, maxstep=0.01, downhill_check=True, Nmin=20)
-    opt.run(fmax=0.001, steps=10)
+    opt.run(fmax=0.001, steps=100)
 
     return atoms
     
-def opt_loop_row(row_calc):
+def opt_loop_row(row_model):
 
-    row, calc = row_calc
-    
+    row, model = row_model
+
+    # input model
+    if model=='chgnet':
+        from chgnet.model.dynamics import CHGNetCalculator
+        calc   = CHGNetCalculator(use_device='cpu')
+    elif model=='7net-0':
+        from sevenn.calculator import SevenNetCalculator
+        calc   = SevenNetCalculator(model=model, device='cpu')
+    elif model=='7net-l3i5':
+        from sevenn.calculator import SevenNetCalculator
+        calc   = SevenNetCalculator(model=model, device='cpu')
+
+    # get conventional cell with 2 fu
     structure, spacegroup_symbol = get_structure(row)
     structure = get_conven_structure(structure, spacegroup_symbol)
     # structure.apply_strain([0.1,0.1,0.2])  # apply strain to test more realistic performance.
-    
+
+    # get DFT c/a/ca ratio
     DFT_a  = structure.lattice.matrix[0,0]
     DFT_c  = structure.lattice.matrix[2,2]
     DFT_ca = structure.lattice.matrix[2,2]/structure.lattice.matrix[0,0]
@@ -175,15 +188,14 @@ def opt_loop_row(row_calc):
     # do relaxation
     atoms_opt = opt_with_symmetry_mod(atoms, calc, True)
     final_structure = AseAtomsAdaptor.get_structure(atoms_opt)
-    
-    # result = relaxer.relax(structure, verbose=False, steps=5000,
-    #                        ase_filter=StrainFilter, \
-    #                        fmax=0.0001, maxstep=0.01, downhill_check=True, Nmin=20)
+
+    # get ML c/a/ca ratio
     ML_a  = final_structure.lattice.matrix[0,0]
     ML_c  = final_structure.lattice.matrix[2,2]
     ML_ca = final_structure.lattice.matrix[2,2]/final_structure.lattice.matrix[0,0]
     ML_cell = str(structure.lattice.matrix.tolist())
-    
+
+    # predict local mom by CHGNet
     prediction = chgnet.predict_structure(final_structure)
     ML_e = prediction['e']
     ML_m = prediction['m']
@@ -218,33 +230,18 @@ if __name__ == "__main__":
     db = db[db['phase']==args.phase].copy()
     print('test database shape: ', db.shape)
 
-    # input model
-    if args.model=='chgnet':
-        from chgnet.model.dynamics import CHGNetCalculator
-        calc   = CHGNetCalculator(use_device='cpu')
-    elif args.model=='7net-0':
-        from sevenn.calculator import SevenNetCalculator
-        calc   = SevenNetCalculator(model=args.model, device='cpu')
-    elif args.model=='7net-l3i5':
-        from sevenn.calculator import SevenNetCalculator
-        calc   = SevenNetCalculator(model=args.model, device='cpu')
-        
     # db_test   = db.copy()
     db_test = db.sample(24).copy()
     rows    = db_test.to_dict(orient="records")
-    rows    = [(row, calc) for row in rows]
-
-    # with mp.Pool(processes=args.core) as pool:
-    #     results = pool.starmap(opt_loop_row, rows)
+    rows    = [(row, args.model) for row in rows]
 
     with mp.Pool(processes=args.core) as pool:
         pool._pickler = dill 
         results = pool.map(opt_loop_row, rows)
             
     # update db
-    if args.model=='chgnet':
-        db_test[['ML_cell','ML_a', 'ML_c', 'ML_ca', 'DFT_a', 'DFT_c', 'DFT_ca', 'ML_e', 'ML_m']] \
-                  = results
+    db_test[['ML_cell','ML_a', 'ML_c', 'ML_ca', 'DFT_a', 'DFT_c', 'DFT_ca', 'ML_e', 'ML_m']] \
+             = results
 
     # save db 
     db_name = args.database_csv.split("/")[-1].split('.')[0]
