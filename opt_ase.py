@@ -14,7 +14,7 @@ import re, os, collections, ast, subprocess
 import spglib
 from tqdm import tqdm
 
-
+from chgnet.model import CHGNet
 
 def str_to_2d_array(string):
     if ',' not in string:
@@ -153,7 +153,7 @@ def opt_with_symmetry_mod(
     ecf = StrainFilter(atoms)
     opt = FIRE(ecf, logfile=None, maxstep=0.01, downhill_check=True, Nmin=20)
     # opt = FIRE(ecf, maxstep=0.01, downhill_check=True, Nmin=20)
-    opt.run(fmax=0.001, steps=2000)
+    opt.run(fmax=0.001, steps=1500)
 
     return atoms
     
@@ -174,7 +174,9 @@ def opt_loop_row(row, model):
     elif model=='mattersim':
         from mattersim.forcefield import MatterSimCalculator
         calc = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device="cpu")
-
+    elif 'eqV2' in model:
+        from fairchem.core.common.relaxation.ase_utils import OCPCalculator
+        calc = OCPCalculator(checkpoint_path=f'./fairchem_checkpoints/{model}.pt', cpu=True) 
     # get conventional cell with 2 fu
     structure, spacegroup_symbol = get_structure(row)
     structure = get_conven_structure(structure, spacegroup_symbol)
@@ -265,11 +267,12 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--database_csv", type=str, required=True, help="Path to the db csv file.")
     parser.add_argument("-t", "--type",         type=str, required=True, help="type of compounds. all/full/inverse/half")
     parser.add_argument("-p", "--phase",        type=str, required=True, help="phase of compounds. all/cubic/tetra")
-    parser.add_argument("-m", "--model",        type=str, required=True, help="ML-FF model  chgnet/7net-0/7net-l3i5/mattersim")
+    parser.add_argument("-m", "--model",        type=str, required=True, help="ML-FF model  chgnet/7net-0/7net-l3i5/mattersim/\
+                                                                               eqV2_31M_omat/eqV2_86M_omat/eqV2_153M_omat")
     parser.add_argument("-o", "--output",       type=str, required=True, help="output dir")
     parser.add_argument("-s", "--size",         type=int, required=True, help="The number of chunks. size>0")
     parser.add_argument("-r", "--rank",         type=int, required=True, help="The rank of chunk selected in this job.\
-                                                                               0 < rank < size-1")
+                                                                               0 <= rank <= size-1")
     args = parser.parse_args()
 
     db = pd.read_csv(args.database_csv, index_col=0)
@@ -282,8 +285,8 @@ if __name__ == "__main__":
         db = db[db['phase']==args.phase].copy()
     print('test database shape: ', db.shape)
 
-    db_test   = db.copy()
-    # db_test = db.sample(23).copy()
+    # db_test   = db.copy()
+    db_test = db.sample(100).copy()
 
     db_test = chunk_dataframe(db_test, args.size, args.rank)
     print('size: ', args.size, 'rank: ', args.rank, )
