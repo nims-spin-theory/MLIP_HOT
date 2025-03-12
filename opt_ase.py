@@ -154,14 +154,15 @@ def opt_with_symmetry_mod(
 
     # ecf = FrechetCellFilter(atoms, hydrostatic_strain=False)
     ecf = StrainFilter(atoms)
-    opt = FIRE(ecf, logfile=None, maxstep=0.01, downhill_check=True, Nmin=20)
-    opt.run(fmax=0.001, steps=5000)
+#    opt = FIRE(ecf, logfile=None, maxstep=0.01, downhill_check=True, Nmin=20)
+    opt = FIRE(ecf, maxstep=0.01, downhill_check=True, Nmin=20)
+    opt.run(fmax=0.001, steps=2000)
 
     return atoms
     
-def opt_loop_row(row_model):
+def opt_loop_row(row, model):
 
-    row, model = row_model
+#    row, model = row_model
 
     # input model
     if model=='chgnet':
@@ -196,7 +197,7 @@ def opt_loop_row(row_model):
     ML_a  = final_structure.lattice.matrix[0,0]
     ML_c  = final_structure.lattice.matrix[2,2]
     ML_ca = final_structure.lattice.matrix[2,2]/final_structure.lattice.matrix[0,0]
-    ML_cell = str(structure.lattice.matrix.tolist())
+    ML_cell = str(final_structure.lattice.matrix.tolist())
 
     # predict local mom by CHGNet
     prediction = chgnet.predict_structure(final_structure)
@@ -211,7 +212,34 @@ def opt_loop_row(row_model):
 
 import argparse
 import multiprocessing as mp
+from mpi4py import MPI
 chgnet = CHGNet.load()
+
+# Initialize MPI
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()  # Process ID
+size = comm.Get_size()  # Total number of processes
+
+def scatter_dataframe(df):
+    """Evenly distribute DataFrame rows across MPI processes."""
+    data = df.to_dict(orient="records")
+    total_rows = len(data)
+    
+    # Determine chunk sizes
+    base_chunk_size = total_rows // size  # Minimum rows per process
+    remainder = total_rows % size  # Extra rows to distribute
+
+    # Create chunk assignments (each process gets base_chunk_size, plus one extra if remainder > 0)
+    chunks = []
+    start_idx = 0
+
+    for i in range(size):
+        extra_row = 1 if i < remainder else 0  # First 'remainder' processes get 1 extra row
+        end_idx = start_idx + base_chunk_size + extra_row
+        chunks.append(data[start_idx:end_idx])
+        start_idx = end_idx
+
+    return comm.scatter(chunks, root=0)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="A script that test structure optmization via CHGNet.")
@@ -232,22 +260,39 @@ if __name__ == "__main__":
     db = db[db['phase']==args.phase].copy()
     print('test database shape: ', db.shape)
 
-    # db_test   = db.copy()
-    db_test = db.sample(24).copy()
-    rows    = db_test.to_dict(orient="records")
-    rows    = [(row, args.model) for row in rows]
+    db_test   = db.copy()
+    # db_test = db.sample(200).copy()
 
-    with mp.Pool(processes=args.core) as pool:
-        results = pool.map(opt_loop_row, rows)
-            
-    # update db
-    db_test[['ML_cell','ML_a', 'ML_c', 'ML_ca', 'DFT_a', 'DFT_c', 'DFT_ca', 'ML_e', 'ML_m']] \
+    local_data = scatter_dataframe(db_test)  
+
+#    rows    = local_data.to_dict(orient="records")
+#    rows    = [(row, args.model) for row in rows]
+    local_results = [opt_loop_row(row, args.model) for row in local_data]
+
+#    with mp.Pool(processes=args.core) as pool:
+#        results = pool.map(opt_loop_row, rows)
+
+    gathered_results = comm.gather(local_results, root=0)
+
+
+
+    if rank == 0:
+        # Flatten list and store in DataFrame
+        # results = [item for sublist in gathered_results for item in sublist]
+        results = []
+        for sublist in gathered_results:
+            for item in sublist:
+                results.append(item)
+        print(results)
+
+        # update db
+        db_test[['ML_cell','ML_a', 'ML_c', 'ML_ca', 'DFT_a', 'DFT_c', 'DFT_ca', 'ML_e', 'ML_m']] \
              = results
 
-    # save db 
-    db_name = args.database_csv.split("/")[-1].split('.')[0]
-    os.makedirs(args.output, exist_ok=True)
-    db_test.to_csv(f'./{args.output}/{db_name}_{args.type}_{args.phase}.csv')
+        # save db 
+        db_name = args.database_csv.split("/")[-1].split('.')[0]
+        os.makedirs(args.output, exist_ok=True)
+        db_test.to_csv(f'./{args.output}/{db_name}_{args.type}_{args.phase}.csv')
 
 
 
