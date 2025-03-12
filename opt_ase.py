@@ -1,6 +1,3 @@
-from chgnet.model import CHGNet
-from chgnet.model import StructOptimizer
-
 from ase import Atoms
 from ase.constraints import FixSymmetry
 from ase.filters import ExpCellFilter, FrechetCellFilter, StrainFilter
@@ -263,7 +260,7 @@ def scatter_dataframe(df):
     return comm.scatter(chunks, root=0)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="A script that test structure optmization via CHGNet.")
+    parser = argparse.ArgumentParser(description="A script that test structure optmization via different ML-FF models.")
     
     parser.add_argument("-d", "--database_csv", type=str, required=True, help="Path to the db csv file.")
     parser.add_argument("-t", "--type",         type=str, required=True, help="type of compounds. all/full/inverse/half")
