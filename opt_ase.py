@@ -261,29 +261,20 @@ if __name__ == "__main__":
     print('test database shape: ', db.shape)
 
     db_test   = db.copy()
-    # db_test = db.sample(200).copy()
+    # db_test = db.sample(10).copy()
 
     local_data = scatter_dataframe(db_test)  
 
-#    rows    = local_data.to_dict(orient="records")
-#    rows    = [(row, args.model) for row in rows]
     local_results = [opt_loop_row(row, args.model) for row in local_data]
-
-#    with mp.Pool(processes=args.core) as pool:
-#        results = pool.map(opt_loop_row, rows)
 
     gathered_results = comm.gather(local_results, root=0)
 
-
-
     if rank == 0:
         # Flatten list and store in DataFrame
-        # results = [item for sublist in gathered_results for item in sublist]
         results = []
         for sublist in gathered_results:
             for item in sublist:
                 results.append(item)
-        print(results)
 
         # update db
         db_test[['ML_cell','ML_a', 'ML_c', 'ML_ca', 'DFT_a', 'DFT_c', 'DFT_ca', 'ML_e', 'ML_m']] \
