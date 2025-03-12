@@ -153,7 +153,7 @@ def opt_with_symmetry_mod(
     ecf = StrainFilter(atoms)
     opt = FIRE(ecf, logfile=None, maxstep=0.01, downhill_check=True, Nmin=20)
     # opt = FIRE(ecf, maxstep=0.01, downhill_check=True, Nmin=20)
-    opt.run(fmax=0.001, steps=1500)
+    opt.run(fmax=0.001, steps=200)
 
     return atoms
     
@@ -180,13 +180,14 @@ def opt_loop_row(row, model):
     # get conventional cell with 2 fu
     structure, spacegroup_symbol = get_structure(row)
     structure = get_conven_structure(structure, spacegroup_symbol)
-    # structure.apply_strain([0.1,0.1,0.2])  # apply strain to test more realistic performance.
-
+    
     # get DFT c/a/ca ratio
     DFT_a  = structure.lattice.matrix[0,0]
     DFT_c  = structure.lattice.matrix[2,2]
     DFT_ca = structure.lattice.matrix[2,2]/structure.lattice.matrix[0,0]
 
+    # structure.apply_strain([0.1,0.1,0.2])  # apply strain to test more realistic performance.
+    
     atoms  = AseAtomsAdaptor.get_atoms(structure)
     # do relaxation
     atoms_opt = opt_with_symmetry_mod(atoms, calc, True)
@@ -285,8 +286,8 @@ if __name__ == "__main__":
         db = db[db['phase']==args.phase].copy()
     print('test database shape: ', db.shape)
 
-    # db_test   = db.copy()
-    db_test = db.sample(100).copy()
+    db_test   = db.copy()
+    # db_test = db.sample(100).copy()
 
     db_test = chunk_dataframe(db_test, args.size, args.rank)
     print('size: ', args.size, 'rank: ', args.rank, )
