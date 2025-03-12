@@ -128,7 +128,7 @@ def prepare_db(db):
     db.loc[indexes, 'phase'] = 'tetra'
     indexes = db[db['space group symbol']=='I-4m2'].index
     db.loc[indexes, 'phase'] = 'tetra'
-    print(db['phase'].value_counts())
+    # print(db['phase'].value_counts())
 
     cols = ['composition', 'type', 'labels', 'space group symbol',
             'cell', 'positions', 'numbers', 'UUID', 'phase', 
@@ -154,8 +154,8 @@ def opt_with_symmetry_mod(
 
     # ecf = FrechetCellFilter(atoms, hydrostatic_strain=False)
     ecf = StrainFilter(atoms)
-#    opt = FIRE(ecf, logfile=None, maxstep=0.01, downhill_check=True, Nmin=20)
-    opt = FIRE(ecf, maxstep=0.01, downhill_check=True, Nmin=20)
+    opt = FIRE(ecf, logfile=None, maxstep=0.01, downhill_check=True, Nmin=20)
+    # opt = FIRE(ecf, maxstep=0.01, downhill_check=True, Nmin=20)
     opt.run(fmax=0.001, steps=2000)
 
     return atoms
@@ -209,6 +209,27 @@ def opt_loop_row(row, model):
     
     return [ML_cell, ML_a, ML_c, ML_ca, DFT_a, DFT_c, DFT_ca, ML_e, ML_m]
 
+def chunk_dataframe(df: pd.DataFrame, size: int, rank: int) -> pd.DataFrame:
+    """
+    Splits a DataFrame into nearly equal-sized chunks and returns the specified rank-th chunk.
+
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    size (int): The number of chunks to split the DataFrame into.
+    rank (int): The rank (index) of the chunk to return (0-based index).
+
+    Returns:
+    pd.DataFrame: The chunk corresponding to the given rank.
+    """
+    if size <= 0:
+        raise ValueError("Size must be greater than zero.")
+    if rank < 0 or rank >= size:
+        raise ValueError("Rank must be between 0 and size-1.")
+
+    n = len(df)
+    indices = np.linspace(0, n, size + 1, dtype=int)  # Compute chunk boundaries
+    return df.iloc[indices[rank]:indices[rank + 1]]
+
 
 import argparse
 import multiprocessing as mp
@@ -245,24 +266,32 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="A script that test structure optmization via CHGNet.")
     
     parser.add_argument("-d", "--database_csv", type=str, required=True, help="Path to the db csv file.")
-    parser.add_argument("-t", "--type",         type=str, required=True, help="type of compounds. full/inverse/half")
-    parser.add_argument("-p", "--phase",        type=str, required=True, help="phase of compounds. cubic/tetra")
-    parser.add_argument("-c", "--core",         type=int, required=True, help="core number for parallel")
+    parser.add_argument("-t", "--type",         type=str, required=True, help="type of compounds. all/full/inverse/half")
+    parser.add_argument("-p", "--phase",        type=str, required=True, help="phase of compounds. all/cubic/tetra")
     parser.add_argument("-m", "--model",        type=str, required=True, help="ML-FF model  chgnet/7net-0/7net-l3i5/mattersim")
     parser.add_argument("-o", "--output",       type=str, required=True, help="output dir")
+    parser.add_argument("-s", "--size",         type=int, required=True, help="The number of chunks. size>0")
+    parser.add_argument("-r", "--rank",         type=int, required=True, help="The rank of chunk selected in this job.\
+                                                                               0 < rank < size-1")
     args = parser.parse_args()
 
     db = pd.read_csv(args.database_csv, index_col=0)
     db = prepare_db(db)
 
     print('database shape: ', db.shape)
-    db = db[db['type']==args.type]
-    db = db[db['phase']==args.phase].copy()
+    if args.type!='all':
+        db = db[db['type']==args.type].copy()
+    if args.phase!='all':
+        db = db[db['phase']==args.phase].copy()
     print('test database shape: ', db.shape)
 
     db_test   = db.copy()
-    # db_test = db.sample(10).copy()
+    # db_test = db.sample(23).copy()
 
+    db_test = chunk_dataframe(db_test, args.size, args.rank)
+    print('size: ', args.size, 'rank: ', args.rank, )
+    print('chunk length: ', db_test.shape)
+    
     local_data = scatter_dataframe(db_test)  
 
     local_results = [opt_loop_row(row, args.model) for row in local_data]
@@ -283,7 +312,7 @@ if __name__ == "__main__":
         # save db 
         db_name = args.database_csv.split("/")[-1].split('.')[0]
         os.makedirs(args.output, exist_ok=True)
-        db_test.to_csv(f'./{args.output}/{db_name}_{args.type}_{args.phase}.csv')
+        db_test.to_csv(f'./{args.output}/{db_name}_{args.type}_{args.phase}_{args.size}_{args.rank}.csv')
 
 
 
