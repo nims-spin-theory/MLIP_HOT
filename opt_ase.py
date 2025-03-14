@@ -186,7 +186,7 @@ def opt_loop_row(row, model):
     DFT_c  = structure.lattice.matrix[2,2]
     DFT_ca = structure.lattice.matrix[2,2]/structure.lattice.matrix[0,0]
 
-    # structure.apply_strain([0.1,0.1,0.2])  # apply strain to test more realistic performance.
+    structure.apply_strain([0.1,0.1,0.1])  # apply strain to test more realistic performance.
     
     atoms  = AseAtomsAdaptor.get_atoms(structure)
     # do relaxation
@@ -199,9 +199,9 @@ def opt_loop_row(row, model):
     ML_ca = final_structure.lattice.matrix[2,2]/final_structure.lattice.matrix[0,0]
     ML_cell = str(final_structure.lattice.matrix.tolist())
 
+    ML_e = atoms_opt.get_total_energy()/atoms_opt.get_global_number_of_atoms()
     # predict local mom by CHGNet
     prediction = chgnet.predict_structure(final_structure)
-    ML_e = prediction['e']
     ML_m = prediction['m']
     ML_m = str([float(i) for i in ML_m])
 
@@ -317,10 +317,3 @@ if __name__ == "__main__":
 
 
 
-
-
-
-
-
-
-    
