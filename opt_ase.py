@@ -132,6 +132,7 @@ def prepare_db(db):
             'energy (eV/atom)', 
             'total magnetization (muB/f.u.)', 
             'local magnetization',
+            'most stable',
             ]
     
     db = db[cols].copy()
