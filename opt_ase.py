@@ -172,6 +172,9 @@ def opt_loop_row(row, model):
     elif model=='7net-l3i5':
         from sevenn.calculator import SevenNetCalculator
         calc   = SevenNetCalculator(model=model, device='cpu')
+    elif model=='7net-mf-ompa':
+        from sevenn.calculator import SevenNetCalculator
+        calc   = SevenNetCalculator(model=model, device='cpu', modal='mpa')
     elif model=='mattersim':
         from mattersim.forcefield import MatterSimCalculator
         calc = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device="cpu")
@@ -269,8 +272,13 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--database_csv", type=str, required=True, help="Path to the db csv file.")
     parser.add_argument("-t", "--type",         type=str, required=True, help="type of compounds. all/full/inverse/half")
     parser.add_argument("-p", "--phase",        type=str, required=True, help="phase of compounds. all/cubic/tetra")
-    parser.add_argument("-m", "--model",        type=str, required=True, help="ML-FF model  chgnet/7net-0/7net-l3i5/mattersim/\
-                                                                               eqV2_31M_omat/eqV2_86M_omat/eqV2_153M_omat")
+    parser.add_argument("-m", "--model",        type=str, required=True, help="ML-FF models:\
+                                                                               chgnet/\
+                                                                               7net-0/7net-l3i5/7net-mf-ompa\
+                                                                               mattersim/\
+                                                                               eqV2_31M/86M/153M_omat\
+                                                                               eqV2_31M/86M/153M_omat_mp_salex\
+                                                                               ")
     parser.add_argument("-o", "--output",       type=str, required=True, help="output dir")
     parser.add_argument("-s", "--size",         type=int, required=True, help="The number of chunks. size>0")
     parser.add_argument("-r", "--rank",         type=int, required=True, help="The rank of chunk selected in this job.\
