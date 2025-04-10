@@ -16,6 +16,12 @@ from qmpy import PhaseSpace
 from tqdm import tqdm
 import argparse
 
+from mpi4py import MPI
+
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+size = comm.Get_size()
+
 
 def get_unique_elements_list(db):
     unique_elements_list = []
@@ -32,38 +38,72 @@ def get_unique_elements_list(db):
     
     return unique_elements_list
 
+# def get_db_convex(unique_elements_list):
+#     db_convex = pd.DataFrame()
+
+#     ind = 0 
+#     for unique_elements in tqdm(unique_elements_list):
+#         phase = PhaseSpace(unique_elements)
+#         for structure in phase.stable:
+#             db_convex.loc[ind, 'name'] = structure.name
+
+#             cell = Structure.from_str(structure.calculation.POSCAR, fmt='poscar')
+#             db_convex.loc[ind, 'cell']      = str(cell.lattice.matrix.tolist())
+#             db_convex.loc[ind, 'positions'] = str(cell.frac_coords.tolist())
+#             db_convex.loc[ind, 'numbers']   = str(list(cell.atomic_numbers))
+
+#             db_convex.loc[ind, 'calculation.id']     = structure.calculation.id 
+#             db_convex.loc[ind, 'calculation.energy'] = structure.calculation.energy 
+#             db_convex.loc[ind, 'formation.delta_e'] = structure.formation.delta_e 
+            
+#             if structure.natoms==1:
+#                 db_convex.loc[ind, 'element']= True
+#             else:
+#                 db_convex.loc[ind, 'element']= False
+#             ind = ind + 1
+#             # break
+#         # break
+        
+#     print('Competing phases in all phase space: ', db_convex.shape[0])
+#     db_convex = db_convex.drop_duplicates()
+#     print('After removing duplicates: ', db_convex.shape[0])
+    
+#     return db_convex
+
 def get_db_convex(unique_elements_list):
     db_convex = pd.DataFrame()
 
-    ind = 0 
-    for unique_elements in tqdm(unique_elements_list):
+    # Scatter workload among ranks
+    local_list = [el for i, el in enumerate(unique_elements_list) if i % size == rank]
+    
+    local_results = []
+    for unique_elements in tqdm(local_list, disable=(rank != 0)):
         phase = PhaseSpace(unique_elements)
         for structure in phase.stable:
-            db_convex.loc[ind, 'name'] = structure.name
+            data = {
+                'name': structure.name,
+                'cell': str(Structure.from_str(structure.calculation.POSCAR, fmt='poscar').lattice.matrix.tolist()),
+                'positions': str(Structure.from_str(structure.calculation.POSCAR, fmt='poscar').frac_coords.tolist()),
+                'numbers': str(list(Structure.from_str(structure.calculation.POSCAR, fmt='poscar').atomic_numbers)),
+                'calculation.id': structure.calculation.id,
+                'calculation.energy': structure.calculation.energy,
+                'formation.delta_e': structure.formation.delta_e,
+                'element': structure.natoms == 1
+            }
+            local_results.append(data)
 
-            cell = Structure.from_str(structure.calculation.POSCAR, fmt='poscar')
-            db_convex.loc[ind, 'cell']      = str(cell.lattice.matrix.tolist())
-            db_convex.loc[ind, 'positions'] = str(cell.frac_coords.tolist())
-            db_convex.loc[ind, 'numbers']   = str(list(cell.atomic_numbers))
+    # Gather data from all processes
+    all_data = comm.gather(local_results, root=0)
 
-            db_convex.loc[ind, 'calculation.id']     = structure.calculation.id 
-            db_convex.loc[ind, 'calculation.energy'] = structure.calculation.energy 
-            db_convex.loc[ind, 'formation.delta_e'] = structure.formation.delta_e 
-            
-            if structure.natoms==1:
-                db_convex.loc[ind, 'element']= True
-            else:
-                db_convex.loc[ind, 'element']= False
-            ind = ind + 1
-            # break
-        # break
-        
-    print('Competing phases in all phase space: ', db_convex.shape[0])
-    db_convex = db_convex.drop_duplicates()
-    print('After removing duplicates: ', db_convex.shape[0])
-    
-    return db_convex
-
+    if rank == 0:
+        flat_data = [item for sublist in all_data for item in sublist]
+        db_convex = pd.DataFrame(flat_data)
+        print('Competing phases in all phase space: ', db_convex.shape[0])
+        db_convex = db_convex.drop_duplicates()
+        print('After removing duplicates: ', db_convex.shape[0])
+        return db_convex
+    else:
+        return None
 
 def get_dict_energy(db, key='element', value='ML_e'):
     return dict(zip(db[key], db[value]))
@@ -103,13 +143,36 @@ def get_hull_distance(composition, energy_per_atom, dict_convex):
 
     return decomp, e_above_hull
 
+# def update_hull_distance(db, dict_convex, col_formula='composition', col_E='ML_formE'):
+#     for ind, row in tqdm(db.iterrows(), total=len(db)):
+#         composition     = row[col_formula]
+#         energy_per_atom = row[col_E]
+#         _, hull = get_hull_distance(composition, energy_per_atom, dict_convex)
+#         db.loc[ind, 'ML_hull'] = hull
+#     return db
+
 def update_hull_distance(db, dict_convex, col_formula='composition', col_E='ML_formE'):
-    for ind, row in tqdm(db.iterrows(), total=len(db)):
+    local_inds = [i for i in range(len(db)) if i % size == rank]
+    local_rows = []
+
+    for ind in tqdm(local_inds, disable=(rank != 0)):
+        row = db.iloc[ind]
         composition     = row[col_formula]
         energy_per_atom = row[col_E]
         _, hull = get_hull_distance(composition, energy_per_atom, dict_convex)
-        db.loc[ind, 'ML_hull'] = hull
-    return db
+        # row['ML_hull'] = hull
+        local_rows.append((ind, hull))
+
+    # Gather data to root
+    all_rows = comm.gather(local_rows, root=0)
+
+    if rank == 0:
+        for sublist in all_rows:
+            for ind, hull in sublist:
+                db.loc[ind, 'ML_hull'] = hull
+        return db
+    else:
+        return None
 
 
 if __name__ == "__main__":
@@ -137,7 +200,7 @@ if __name__ == "__main__":
         unique_elements_list = get_unique_elements_list(db)
         db_convex = get_db_convex(unique_elements_list)
 
-        db_convex.to_csv(args.output)
+        if rank == 0: db_convex.to_csv(args.output)
 
     elif args.model=='evaluate': 
         db_convex   = pd.read_csv(args.database_convex, index_col=0)
@@ -145,7 +208,7 @@ if __name__ == "__main__":
         print("dict_convex len: ", len(dict_convex))
             
         db = update_hull_distance(db, dict_convex, col_formula=args.formula_column_candidate, col_E=args.formation_energy_column)
-        db.to_csv(args.output)
+        if rank == 0: db.to_csv(args.output)
 
 
 
