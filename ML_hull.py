@@ -15,6 +15,7 @@ from pymatgen.core.composition import Composition
 from qmpy import PhaseSpace
 from tqdm import tqdm
 import argparse
+import re
 
 from mpi4py import MPI
 
@@ -108,6 +109,9 @@ def get_db_convex(unique_elements_list):
 def get_dict_energy(db, key='element', value='ML_e'):
     return dict(zip(db[key], db[value]))
 
+def extract_elements(formula):
+    # Match element symbols (capital letter followed by optional lowercase)
+    return re.findall(r'[A-Z][a-z]?', formula)
 
 def make_pdentry_list(list_compositions, list_energies):
     pdentry_list = []
@@ -124,16 +128,30 @@ def get_hull_distance(composition, energy_per_atom, dict_convex):
     if len(unique_elements) == 1:
         return 0.0
 
-    phase = PhaseSpace(unique_elements)
+#     phase = PhaseSpace(unique_elements)
 
+#     list_compositions = []
+#     list_formation_energies = []
+#     for structure in phase.stable:
+#         list_compositions.append(structure.name)
+#         # list_formation_energies.append(structure.formation.delta_e * structure.natoms)
+#         # list_formation_energies.append(dict_convex[structure.calculation.id] * structure.natoms)
+#         list_formation_energies.append(dict_convex[structure.name] * structure.natoms)
+
+    phase = {
+        k: v for k, v in dict_convex.items()
+        if set(extract_elements(k)).issubset(unique_elements)
+    }
+    
     list_compositions = []
     list_formation_energies = []
-    for structure in phase.stable:
-        list_compositions.append(structure.name)
-        # list_formation_energies.append(structure.formation.delta_e * structure.natoms)
-        # list_formation_energies.append(dict_convex[structure.calculation.id] * structure.natoms)
-        list_formation_energies.append(dict_convex[structure.name] * structure.natoms)
-
+    for k, v in phase.items():
+        list_compositions.append(k)
+        
+        tmp = Formula(k).count()
+        natom_tmp = sum(list(tmp.values()))
+        list_formation_energies.append(v * natom_tmp)
+    
     list_compositions.append(composition)
     list_formation_energies.append(energy_per_atom * natom)
 
