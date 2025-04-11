@@ -158,7 +158,7 @@ def opt_with_symmetry_mod(
 
     return atoms
     
-def opt_loop_row(row, model, strain):
+def opt_loop_row(row, model):
 
 #    row, model = row_model
 
@@ -190,8 +190,7 @@ def opt_loop_row(row, model, strain):
     DFT_c  = structure.lattice.matrix[2,2]
     DFT_ca = structure.lattice.matrix[2,2]/structure.lattice.matrix[0,0]
 
-    #structure.apply_strain([0.1,0.1,0.1])  # apply strain to find real global minimum
-    structure.apply_strain(strain)
+    structure.apply_strain([0.1,0.1,0.1])  # apply strain to test more realistic performance.
     
     atoms  = AseAtomsAdaptor.get_atoms(structure)
     # do relaxation
@@ -271,6 +270,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="A script that test structure optmization via different ML-FF models.")
     
     parser.add_argument("-d", "--database_csv", type=str, required=True, help="Path to the db csv file.")
+    parser.add_argument("-t", "--type",         type=str, required=True, help="type of compounds. all/full/inverse/half")
+    parser.add_argument("-p", "--phase",        type=str, required=True, help="phase of compounds. all/cubic/tetra")
     parser.add_argument("-m", "--model",        type=str, required=True, help="ML-FF models:\
                                                                                chgnet/\
                                                                                7net-0/7net-l3i5/7net-mf-ompa\
@@ -282,17 +283,20 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--size",         type=int, required=True, help="The number of chunks. size>0")
     parser.add_argument("-r", "--rank",         type=int, required=True, help="The rank of chunk selected in this job.\
                                                                                0 <= rank <= size-1")
-    
-    parser.add_argument("--strain", nargs=3, type=float, default=[0.0, 0.0, 0.0],
-                    help="Apply directional strain as three floats (e.g., 0.01 -0.02 0.00 for x/y/z). Default is no strain.")
-
     args = parser.parse_args()
 
     db = pd.read_csv(args.database_csv, index_col=0)
     db = prepare_db(db)
+
     print('database shape: ', db.shape)
+    if args.type!='all':
+        db = db[db['type']==args.type].copy()
+    if args.phase!='all':
+        db = db[db['phase']==args.phase].copy()
+    print('test database shape: ', db.shape)
 
     db_test   = db.copy()
+    # db_test = db.sample(100).copy()
 
     db_test = chunk_dataframe(db_test, args.size, args.rank)
     print('size: ', args.size, 'rank: ', args.rank, )
@@ -300,7 +304,7 @@ if __name__ == "__main__":
     
     local_data = scatter_dataframe(db_test)  
 
-    local_results = [opt_loop_row(row, args.model, args.strain) for row in local_data]
+    local_results = [opt_loop_row(row, args.model) for row in local_data]
 
     gathered_results = comm.gather(local_results, root=0)
 
