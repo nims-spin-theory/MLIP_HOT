@@ -136,7 +136,7 @@ def opt_with_symmetry_mod(
 
     return atoms
     
-def opt_loop_row(row, model, strain, heusler=False):
+def opt_loop_row(local_data, model, strain, heusler=False):
     # if heusler==True, the stucture is converted to 
     # a conventional cell contain 2 f.u.
 
@@ -159,38 +159,44 @@ def opt_loop_row(row, model, strain, heusler=False):
     elif 'eqV2' in model:
         from fairchem.core.common.relaxation.ase_utils import OCPCalculator
         calc = OCPCalculator(checkpoint_path=f'./fairchem_checkpoints/{model}.pt', cpu=True) 
-    # get conventional cell with 2 fu
-    structure, spacegroup_symbol = get_structure(row)
-    if heusler==True:
-        structure = get_conven_structure(structure, spacegroup_symbol)
 
-    #structure.apply_strain([0.1,0.1,0.1])  # apply strain to find real global minimum
-    structure.apply_strain(strain)
-
-    # get initial cell after strain 
-    init_cell      = str(structure.lattice.matrix.tolist())
-    init_positions = str(structure.frac_coords.tolist())
-    init_numbers   = str(list(structure.atomic_numbers))
+    local_results = []
+    for row in local_data:    
     
-    atoms  = AseAtomsAdaptor.get_atoms(structure)
-    # do relaxation
-    atoms_opt = opt_with_symmetry_mod(atoms, calc, True)
-    final_structure = AseAtomsAdaptor.get_structure(atoms_opt)
-
-    # get ML c/a/ca ratio
-    #ML_a  = final_structure.lattice.matrix[0,0]
-    #ML_c  = final_structure.lattice.matrix[2,2]
-    #ML_ca = final_structure.lattice.matrix[2,2]/final_structure.lattice.matrix[0,0]
-    ML_cell = str(final_structure.lattice.matrix.tolist())
-
-    ML_e = atoms_opt.get_total_energy()/atoms_opt.get_global_number_of_atoms()
-    # predict local mom by CHGNet
-    #prediction = chgnet.predict_structure(final_structure)
-    #ML_m = prediction['m']
-    #ML_m = str([float(i) for i in ML_m])
-
+        structure, spacegroup_symbol = get_structure(row)
     
-    return [init_cell, init_positions, init_numbers, ML_cell, ML_e] 
+        # get conventional cell with 2 fu
+        if heusler==True:
+            structure = get_conven_structure(structure, spacegroup_symbol)
+    
+        #structure.apply_strain([0.1,0.1,0.1])  # apply strain to find real global minimum
+        structure.apply_strain(strain)
+    
+        # get initial cell after strain 
+        init_cell      = str(structure.lattice.matrix.tolist())
+        init_positions = str(structure.frac_coords.tolist())
+        init_numbers   = str(list(structure.atomic_numbers))
+        
+        atoms  = AseAtomsAdaptor.get_atoms(structure)
+        # do relaxation
+        atoms_opt = opt_with_symmetry_mod(atoms, calc, True)
+        final_structure = AseAtomsAdaptor.get_structure(atoms_opt)
+    
+        # get ML c/a/ca ratio
+        #ML_a  = final_structure.lattice.matrix[0,0]
+        #ML_c  = final_structure.lattice.matrix[2,2]
+        #ML_ca = final_structure.lattice.matrix[2,2]/final_structure.lattice.matrix[0,0]
+        ML_cell = str(final_structure.lattice.matrix.tolist())
+    
+        ML_e = atoms_opt.get_total_energy()/atoms_opt.get_global_number_of_atoms()
+        # predict local mom by CHGNet
+        #prediction = chgnet.predict_structure(final_structure)
+        #ML_m = prediction['m']
+        #ML_m = str([float(i) for i in ML_m])
+
+        local_results.append([init_cell, init_positions, init_numbers, ML_cell, ML_e])
+    
+    return local_results 
 
 def chunk_dataframe(df: pd.DataFrame, size: int, rank: int) -> pd.DataFrame:
     """
@@ -278,7 +284,8 @@ if __name__ == "__main__":
     
     local_data = scatter_dataframe(db_test)  
 
-    local_results = [opt_loop_row(row, args.model, args.strain, args.heusler2fu) for row in local_data]
+    # local_results = [opt_loop_row(row, args.model, args.strain, args.heusler2fu) for row in local_data]
+    local_results = opt_loop_row(local_data, args.model, args.strain, args.heusler2fu) 
 
     gathered_results = comm.gather(local_results, root=0)
 
