@@ -115,28 +115,6 @@ def get_conven_structure(structure, spacegroup_symbol):
 
     return structure
 
-def prepare_db(db):
-
-    indexes = db[db['space group symbol']=='Fm-3m'].index
-    db.loc[indexes, 'phase'] = 'cubic'
-    indexes = db[db['space group symbol']=='F-43m'].index
-    db.loc[indexes, 'phase'] = 'cubic'
-    indexes = db[db['space group symbol']=='I4/mmm'].index
-    db.loc[indexes, 'phase'] = 'tetra'
-    indexes = db[db['space group symbol']=='I-4m2'].index
-    db.loc[indexes, 'phase'] = 'tetra'
-    # print(db['phase'].value_counts())
-
-    cols = ['composition', 'type', 'labels', 'space group symbol',
-            'cell', 'positions', 'numbers', 'UUID', 'phase', 
-            'energy (eV/atom)', 
-            'total magnetization (muB/f.u.)', 
-            'local magnetization',
-            'most stable',
-            ]
-    
-    db = db[cols].copy()
-    return db
 
 def opt_with_symmetry_mod(
     atoms_in: Atoms,
@@ -158,9 +136,9 @@ def opt_with_symmetry_mod(
 
     return atoms
     
-def opt_loop_row(row, model, strain):
-
-#    row, model = row_model
+def opt_loop_row(row, model, strain, heusler=False):
+    # if heusler==True, the stucture is converted to 
+    # a conventional cell contain 2 f.u.
 
     # input model
     if model=='chgnet':
@@ -183,15 +161,16 @@ def opt_loop_row(row, model, strain):
         calc = OCPCalculator(checkpoint_path=f'./fairchem_checkpoints/{model}.pt', cpu=True) 
     # get conventional cell with 2 fu
     structure, spacegroup_symbol = get_structure(row)
-    structure = get_conven_structure(structure, spacegroup_symbol)
-    
-    # get DFT c/a/ca ratio
-    DFT_a  = structure.lattice.matrix[0,0]
-    DFT_c  = structure.lattice.matrix[2,2]
-    DFT_ca = structure.lattice.matrix[2,2]/structure.lattice.matrix[0,0]
+    if heusler==True:
+        structure = get_conven_structure(structure, spacegroup_symbol)
 
     #structure.apply_strain([0.1,0.1,0.1])  # apply strain to find real global minimum
     structure.apply_strain(strain)
+
+    # get initial cell after strain 
+    init_cell      = str(structure.lattice.matrix.tolist())
+    init_positions = str(structure.frac_coords.tolist())
+    init_numbers   = str(list(structure.atomic_numbers))
     
     atoms  = AseAtomsAdaptor.get_atoms(structure)
     # do relaxation
@@ -199,20 +178,19 @@ def opt_loop_row(row, model, strain):
     final_structure = AseAtomsAdaptor.get_structure(atoms_opt)
 
     # get ML c/a/ca ratio
-    ML_a  = final_structure.lattice.matrix[0,0]
-    ML_c  = final_structure.lattice.matrix[2,2]
-    ML_ca = final_structure.lattice.matrix[2,2]/final_structure.lattice.matrix[0,0]
+    #ML_a  = final_structure.lattice.matrix[0,0]
+    #ML_c  = final_structure.lattice.matrix[2,2]
+    #ML_ca = final_structure.lattice.matrix[2,2]/final_structure.lattice.matrix[0,0]
     ML_cell = str(final_structure.lattice.matrix.tolist())
 
     ML_e = atoms_opt.get_total_energy()/atoms_opt.get_global_number_of_atoms()
     # predict local mom by CHGNet
-    prediction = chgnet.predict_structure(final_structure)
-    ML_m = prediction['m']
-    ML_m = str([float(i) for i in ML_m])
+    #prediction = chgnet.predict_structure(final_structure)
+    #ML_m = prediction['m']
+    #ML_m = str([float(i) for i in ML_m])
 
-    # test_db.loc[ind, ['ML_e', 'ML_m']] = [ML_e, ML_m]
     
-    return [ML_cell, ML_a, ML_c, ML_ca, DFT_a, DFT_c, DFT_ca, ML_e, ML_m]
+    return [init_cell, init_positions, init_numbers, ML_cell, ML_e] 
 
 def chunk_dataframe(df: pd.DataFrame, size: int, rank: int) -> pd.DataFrame:
     """
@@ -282,14 +260,14 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--size",         type=int, required=True, help="The number of chunks. size>0")
     parser.add_argument("-r", "--rank",         type=int, required=True, help="The rank of chunk selected in this job.\
                                                                                0 <= rank <= size-1")
-    
+    parser.add_argument("--heusler2fu",         type=bool,default=False, help="if Ture, heusler compound is converted to a conventional cell with 2fu.")
+
     parser.add_argument("--strain", nargs=3, type=float, default=[0.0, 0.0, 0.0],
                     help="Apply directional strain as three floats (e.g., 0.01 -0.02 0.00 for x/y/z). Default is no strain.")
 
     args = parser.parse_args()
 
     db = pd.read_csv(args.database_csv, index_col=0)
-    db = prepare_db(db)
     print('database shape: ', db.shape)
 
     db_test   = db.copy()
@@ -300,7 +278,7 @@ if __name__ == "__main__":
     
     local_data = scatter_dataframe(db_test)  
 
-    local_results = [opt_loop_row(row, args.model, args.strain) for row in local_data]
+    local_results = [opt_loop_row(row, args.model, args.strain, args.heusler2fu) for row in local_data]
 
     gathered_results = comm.gather(local_results, root=0)
 
@@ -312,7 +290,7 @@ if __name__ == "__main__":
                 results.append(item)
 
         # update db
-        db_test[['ML_cell','ML_a', 'ML_c', 'ML_ca', 'DFT_a', 'DFT_c', 'DFT_ca', 'ML_e', 'ML_m']] \
+        db_test[['init_cell', 'init_positions', 'init_numbers', 'ML_cell', 'ML_e',]] \
              = results
 
         # save db 
