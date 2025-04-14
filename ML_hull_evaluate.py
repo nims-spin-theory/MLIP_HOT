@@ -120,14 +120,14 @@ def get_hull_distance(composition, energy_per_atom, dict_convex):
 
     return decomp, e_above_hull
 
-def update_hull_distance(db, dict_convex, col_formula='composition', col_fromE='ML_formE'):
+def update_hull_distance(db, dict_convex, col_formula='composition', col_formE='ML_formE'):
     local_inds = [i for i in range(len(db)) if i % size == rank]
     local_rows = []
 
     for ind in tqdm(local_inds, disable=(rank != 0)):
         row = db.iloc[ind]
         composition     = row[col_formula]
-        energy_per_atom = row[col_form_E]
+        energy_per_atom = row[col_formE]
         _, hull = get_hull_distance(composition, energy_per_atom, dict_convex)
         # row['ML_hull'] = hull
         local_rows.append((ind, hull))
@@ -149,17 +149,14 @@ if __name__ == "__main__":
         description="Use ML formation energy of compounds and competing phases to evaluate Hull distance. Energy is in energy per atom."
     )
     
-    parser.add_argument("-m", "--model", type=str, required=True, help="model: prepare/evaluate")
     
-    parser.add_argument("-d", "--database_candidate",  type=str, required=True, help="compounds db csv file containing compounds for hull evaluation. [prepare/evaluate]")
-    
-    parser.add_argument("-c", "--database_convex",    type=str, required=False,        help="Competing phases formation energy db csv file. [evaluate]")  
-    parser.add_argument("--formula_column_candidate", type=str, default="composition", help="Column name in compound database containing the formulas. (default: composition)  [evaluate]" ) 
-    parser.add_argument("--formula_column_convex",    type=str, default="name",        help="Column name in convex database containing the formulas. (default: name)  [evaluate]" ) 
-    parser.add_argument("--formation_energy_column",  type=str, default="ML_formE",    help="Column name in database containing the ML formation energies (default: ML_formE)  [evaluate]" ) 
+    parser.add_argument("-d", "--database_candidate", type=str, required=True,         help="compounds db csv file containing compounds for hull evaluation. ")
+    parser.add_argument("-c", "--database_convex",    type=str, required=False,        help="Competing phases formation energy db csv file. ")  
+    parser.add_argument("--formula_column_candidate", type=str, default="composition", help="Column name in compound database containing the formulas. (default: composition) " ) 
+    parser.add_argument("--formula_column_convex",    type=str, default="name",        help="Column name in convex database containing the formulas. (default: name) " ) 
+    parser.add_argument("--formation_energy_column",  type=str, default="ML_formE",    help="Column name in database containing the ML formation energies (default: ML_formE) " ) 
 
-    parser.add_argument("-o", "--output",              type=str, required=True, help="Output, convex hull competing phase compounds joblist csv file name. [prepare] \\ \
-                                                                                      Output, hull distance csv file name. [evaluate]")
+    parser.add_argument("-o", "--output",             type=str, required=True,         help="Output, hull distance csv file name. ")
         
     args = parser.parse_args()
 
@@ -171,10 +168,11 @@ if __name__ == "__main__":
     db_convex   = pd.read_csv(args.database_convex, index_col=0)
     dict_convex = get_dict_energy(db_convex, key=args.formula_column_convex, value=args.formation_energy_column)
 
-    print("Evalute hull distance using formation energy from file:")
-    print(args.database_convex)
-    print("dict_convex len: ", len(dict_convex))
-    print("MPI size: ", size)
+    if rank == 0:
+        print("Evalute hull distance using formation energy of competing phases from file:")
+        print(args.database_convex)
+        print("dict_convex len: ", len(dict_convex))
+        print("MPI size: ", size)
             
     db = update_hull_distance(db, dict_convex, col_formula=args.formula_column_candidate, col_formE=args.formation_energy_column)
     if rank == 0: db.to_csv(args.output)
