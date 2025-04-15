@@ -162,7 +162,7 @@ def opt_loop_row(local_data, model, strain, heusler=False):
 
     local_results = []
     for row in local_data:    
-    
+
         structure, spacegroup_symbol = get_structure(row)
     
         # get conventional cell with 2 fu
@@ -303,7 +303,7 @@ if __name__ == "__main__":
         # save db 
         db_name = args.database_csv.split("/")[-1].split('.')[0]
         os.makedirs(args.output, exist_ok=True)
-        db_test.to_csv(f'./{args.output}/{db_name}_{args.type}_{args.phase}_{args.size}_{args.rank}.csv')
+        db_test.to_csv(f'./{args.output}/{db_name}_{args.size}_{args.rank}.csv')
 
 
 
