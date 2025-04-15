@@ -14,7 +14,7 @@ import re, os, collections, ast, subprocess
 import spglib
 from tqdm import tqdm
 
-from chgnet.model import CHGNet
+#from chgnet.model import CHGNet
 
 def str_to_2d_array(string):
     if ',' not in string:
@@ -223,7 +223,7 @@ def chunk_dataframe(df: pd.DataFrame, size: int, rank: int) -> pd.DataFrame:
 import argparse
 import multiprocessing as mp
 from mpi4py import MPI
-chgnet = CHGNet.load()
+# chgnet = CHGNet.load()
 
 # Initialize MPI
 comm = MPI.COMM_WORLD
