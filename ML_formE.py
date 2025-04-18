@@ -33,7 +33,7 @@ def update_formation_energy(db, dic_terminal, col_formula='composition', col_E='
 
 def load_db_csv(folder='./convex_eqV2_31M_omat_mp_salex/', name="db*convex*.csv"):
     csv_files = glob.glob(os.path.join(folder, name))
-    db = pd.concat((pd.read_csv(file, index_col=0) for file in csv_files), ignore_index=True)
+    db = pd.concat((pd.read_csv(file, index_col=0) for file in csv_files), ignore_index=False)
     return db
 
 
@@ -58,5 +58,6 @@ if __name__ == "__main__":
 
     db = load_db_csv(folder=args.database_folder, name=args.database_name)
     db = update_formation_energy(db, dict_terminal, col_formula=args.formula_column_compound, col_E=args.energy_column)
+    db = db.sort_index()
 
     db.to_csv(args.output)

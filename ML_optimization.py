@@ -13,6 +13,7 @@ import pandas as pd
 import re, os, collections, ast, subprocess
 import spglib
 from tqdm import tqdm
+from math import sqrt
 
 #from chgnet.model import CHGNet
 
@@ -115,7 +116,33 @@ def get_conven_structure(structure, spacegroup_symbol):
 
     return structure
 
+class StagnationFIRE(FIRE):
+    def __init__(self, atoms, window=10, delta=1e-5, **kwargs):
+        super().__init__(atoms, **kwargs)
+        self.window = window        # Number of recent steps to track
+        self.delta = delta          # Tolerance for detecting stagnation
+        self.history = []
 
+    def converged(self, forces=None):
+        super().converged()
+        """Did the optimization converge?"""
+        if forces is None:
+            forces = self.optimizable.get_forces()
+
+        result = self.optimizable.converged(forces, self.fmax)
+        if result==False:
+            fmax = sqrt((forces ** 2).sum(axis=1).max())
+            self.history.append(fmax)
+
+            if len(self.history) > self.window:
+                self.history.pop(0)
+                changes = np.abs(np.diff(self.history))    
+                # print(changes)
+                if np.all(changes < self.delta):
+                    print(f"Stopping FIRE due to stagnation in fmax. delta={self.delta }. window={self.window}.")
+                    result = True
+        return result
+        
 def opt_with_symmetry_mod(
     atoms_in: Atoms,
     calculator: Calculator,
@@ -130,9 +157,10 @@ def opt_with_symmetry_mod(
 
     # ecf = FrechetCellFilter(atoms, hydrostatic_strain=False)
     ecf = StrainFilter(atoms)
-    opt = FIRE(ecf, logfile=None, maxstep=0.01, downhill_check=True, Nmin=20)
-    # opt = FIRE(ecf, maxstep=0.01, downhill_check=True, Nmin=20)
-    opt.run(fmax=0.001, steps=200)
+    opt = StagnationFIRE(ecf, logfile=None, maxstep=0.01, downhill_check=True, Nmin=5,
+                               window=10, delta=1e-4)
+    
+    opt.run(fmax=0.001, steps=500)
 
     return atoms
     
