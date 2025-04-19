@@ -156,12 +156,21 @@ def opt_with_symmetry_mod(
         atoms.set_constraint([FixSymmetry(atoms)])
 
     # ecf = FrechetCellFilter(atoms, hydrostatic_strain=False)
-    ecf = StrainFilter(atoms)
-    opt = StagnationFIRE(ecf, logfile=None, maxstep=0.01, downhill_check=True, Nmin=5,
-                               window=10, delta=1e-4)
-    
-    opt.run(fmax=0.001, steps=500)
+    # ecf = StrainFilter(atoms)
+    # opt = StagnationFIRE(ecf, logfile=None, maxstep=0.01, downhill_check=True, Nmin=5,
+                               # window=10, delta=1e-4)
+    # opt.run(fmax=0.001, steps=500)
 
+    ecf = FrechetCellFilter(atoms, hydrostatic_strain=False)
+    opt = StagnationFIRE(ecf, logfile=None, maxstep=0.1, downhill_check=True, Nmin=5,
+                              window=10, delta=1e-4)
+    opt.run(fmax=0.0001, steps=200,)
+    opt = StagnationFIRE(ecf, logfile=None, maxstep=0.01, downhill_check=True, Nmin=5,
+                              window=10, delta=1e-4)
+    opt.run(fmax=0.0001, steps=200,)
+    opt = StagnationFIRE(ecf, logfile=None, maxstep=0.001, downhill_check=False, Nmin=5,
+                              window=10, delta=1e-5)
+    opt.run(fmax=0.0001, steps=200,)
     return atoms
     
 def opt_loop_row(local_data, model, strain, heusler=False):
@@ -199,6 +208,7 @@ def opt_loop_row(local_data, model, strain, heusler=False):
     
         #structure.apply_strain([0.1,0.1,0.1])  # apply strain to find real global minimum
         structure.apply_strain(strain)
+        structure, spacegroup_symbol = symmetrize_structure(structure)
     
         # get initial cell after strain 
         init_cell      = str(structure.lattice.matrix.tolist())
