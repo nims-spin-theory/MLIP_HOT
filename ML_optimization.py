@@ -196,6 +196,10 @@ def opt_loop_row(local_data, model, strain, heusler=False):
     elif 'eqV2' in model:
         from fairchem.core.common.relaxation.ase_utils import OCPCalculator
         calc = OCPCalculator(checkpoint_path=f'./fairchem_checkpoints/{model}.pt', cpu=True) 
+    elif 'esen_30m_oam' in model:
+        from fairchem.core.common.relaxation.ase_utils import OCPCalculator
+        calc = OCPCalculator(checkpoint_path=f'./fairchem_checkpoints/{model}.pt', cpu=True)
+
 
     local_results = []
     for row in local_data:    
@@ -299,6 +303,7 @@ if __name__ == "__main__":
                                                                                mattersim/\
                                                                                eqV2_31M/86M/153M_omat\
                                                                                eqV2_31M/86M/153M_omat_mp_salex\
+                                                                               esen_30m_oam\
                                                                                ")
     parser.add_argument("-o", "--output",       type=str, required=True, help="output dir")
     parser.add_argument("-s", "--size",         type=int, required=True, help="The number of chunks. size>0")
