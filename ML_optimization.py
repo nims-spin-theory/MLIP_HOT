@@ -199,7 +199,10 @@ def opt_loop_row(local_data, model, strain, heusler=False):
     elif 'esen_30m_oam' in model:
         from fairchem.core.common.relaxation.ase_utils import OCPCalculator
         calc = OCPCalculator(checkpoint_path=f'./fairchem_checkpoints/{model}.pt', cpu=True)
-
+    elif model=='hienet':
+        from hienet.hienet_calculator import HIENetCalculator
+        calc = HIENetCalculator()
+        
 
     local_results = []
     for row in local_data:    
