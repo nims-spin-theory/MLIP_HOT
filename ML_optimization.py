@@ -312,7 +312,7 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--size",         type=int, required=True, help="The number of chunks. size>0")
     parser.add_argument("-r", "--rank",         type=int, required=True, help="The rank of chunk selected in this job.\
                                                                                0 <= rank <= size-1")
-    parser.add_argument("--heusler2fu",         type=bool,default=False, help="if Ture, heusler compound is converted to a conventional cell with 2fu.")
+    parser.add_argument("--heusler2fu",         type=bool,default=False, help="if Ture, heusler compound is converted to a conventional cell with 2fu before apply strain.")
 
     parser.add_argument("--strain", nargs=3, type=float, default=[0.0, 0.0, 0.0],
                     help="Apply directional strain as three floats (e.g., 0.01 -0.02 0.00 for x/y/z). Default is no strain.")
