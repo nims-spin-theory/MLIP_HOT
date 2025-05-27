@@ -24,7 +24,7 @@ def get_unique_elements_list(db):
         unique_elements_list.append(unique_elements)
     print('All compounds: ', len(unique_elements_list))
 
-    unique_elements_list = list(set(tuple(sublist) for sublist in unique_elements_list))
+    unique_elements_list = set(tuple(sorted(sublist)) for sublist in unique_elements_list)
     unique_elements_list = [list(t) for t in unique_elements_list]
     print('Unique phase space: ', len(unique_elements_list))
     
@@ -152,9 +152,10 @@ if __name__ == "__main__":
     
     parser.add_argument("-d", "--database_candidate", type=str, required=True,         help="compounds db csv file containing compounds for hull evaluation. ")
     parser.add_argument("-c", "--database_convex",    type=str, required=False,        help="Competing phases formation energy db csv file. ")  
-    parser.add_argument("--formula_column_candidate", type=str, default="composition", help="Column name in compound database containing the formulas. (default: composition) " ) 
-    parser.add_argument("--formula_column_convex",    type=str, default="name",        help="Column name in convex database containing the formulas. (default: name) " ) 
-    parser.add_argument("--formation_energy_column",  type=str, default="ML_formE",    help="Column name in database containing the ML formation energies (default: ML_formE) " ) 
+    parser.add_argument("--formula_column_candidate", type=str, default="composition", help="Column name in candidate database containing the formulas. (default: composition) " ) 
+    parser.add_argument("--formula_column_convex",    type=str, default="name",        help="Column name in convex    database containing the formulas. (default: name) " ) 
+    parser.add_argument("--formE_column_candidate",   type=str, default="ML_formE",    help="Column name in candidate database containing the ML formation energies (default: ML_formE) " ) 
+    parser.add_argument("--formE_column_convex",      type=str, default="ML_formE",    help="Column name in convex    database containing the ML formation energies (default: ML_formE) " ) 
 
     parser.add_argument("-o", "--output",             type=str, required=True,         help="Output, hull distance csv file name. ")
         
