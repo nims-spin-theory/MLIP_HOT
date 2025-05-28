@@ -121,16 +121,19 @@ def get_hull_distance(composition, energy_per_atom, dict_convex):
     return decomp, e_above_hull
 
 def update_hull_distance(db, dict_convex, col_formula='composition', col_formE='ML_formE'):
-    local_inds = [i for i in range(len(db)) if i % size == rank]
+    local_inds = list(range(rank, len(db), size))
     local_rows = []
 
-    for ind in tqdm(local_inds, disable=(rank != 0)):
+    for progress, ind in enumerate(local_inds):
         row = db.iloc[ind]
         composition     = row[col_formula]
         energy_per_atom = row[col_formE]
         _, hull = get_hull_distance(composition, energy_per_atom, dict_convex)
         # row['ML_hull'] = hull
         local_rows.append((ind, hull))
+
+        if rank==0 and progress%100==0:
+            print(progress, progress/len(local_inds))
 
     # Gather data to root
     all_rows = comm.gather(local_rows, root=0)
