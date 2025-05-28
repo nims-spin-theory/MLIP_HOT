@@ -167,7 +167,7 @@ if __name__ == "__main__":
     #readin csv that contains the competing phase compound and formation energy (energy/atom)
     #the joblist of this csv is obtained via ML_hull_prepare.py 
     db_convex   = pd.read_csv(args.database_convex, index_col=0)
-    dict_convex = get_dict_energy(db_convex, key=args.formula_column_convex, value=args.formation_energy_column)
+    dict_convex = get_dict_energy(db_convex, key=args.formula_column_convex, value=args.formE_column_convex)
 
     if rank == 0:
         print("Evalute hull distance using formation energy of competing phases from file:")
@@ -175,7 +175,7 @@ if __name__ == "__main__":
         print("dict_convex len: ", len(dict_convex))
         print("MPI size: ", size)
             
-    db = update_hull_distance(db, dict_convex, col_formula=args.formula_column_candidate, col_formE=args.formation_energy_column)
+    db = update_hull_distance(db, dict_convex, col_formula=args.formula_column_candidate, col_formE=args.formE_column_candidate)
     if rank == 0: db.to_csv(args.output)
 
 
