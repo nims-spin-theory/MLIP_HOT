@@ -79,7 +79,7 @@ def get_conven_structure(structure, spacegroup_symbol):
                                    [ 1.,  0.,  1.],
                                    [ 1.,  1.,  0.]])
         structure.make_supercell(scaling_matrix=scaling_matrix )
-    elif spacegroup_symbol in ['F-43m', 'Fm-3m']:
+    elif spacegroup_symbol in ['F-43m', 'Fm-3m', 'Fd-3m']: 
         scaling_matrix = np.array([[ 0.,  0.,  1.],
                                    [ 1., -1.,  0.],
                                    [ 1.,  1., -1.]] )
@@ -104,7 +104,8 @@ def get_conven_structure(structure, spacegroup_symbol):
         structure = Structure(Lattice(cleaned_lattice), 
                                       structure.species, 
                                       cleaned_coords)
-        
+    elif spacegroup_symbol in ['Pm-3m',]:
+        pass
     else:
         print('error,', spacegroup_symbol)
 
