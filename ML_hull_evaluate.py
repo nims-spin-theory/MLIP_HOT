@@ -120,7 +120,7 @@ def get_hull_distance(composition, energy_per_atom, dict_convex):
 
     return decomp, e_above_hull
 
-def update_hull_distance(db, dict_convex, col_formula='composition', col_formE='ML_formE'):
+def update_hull_distance(db, dict_convex, col_formula='composition', col_formE='ML_formE', col_out='ML_hull'):
     local_inds = list(range(rank, len(db), size))
     local_rows = []
 
@@ -141,7 +141,7 @@ def update_hull_distance(db, dict_convex, col_formula='composition', col_formE='
     if rank == 0:
         for sublist in all_rows:
             for ind, hull in sublist:
-                db.loc[ind, 'ML_hull'] = hull
+                db.loc[ind, col_out] = hull
         return db
     else:
         return None
@@ -161,11 +161,12 @@ if __name__ == "__main__":
     parser.add_argument("--formE_column_convex",      type=str, default="ML_formE",    help="Column name in convex    database containing the ML formation energies (default: ML_formE) " ) 
 
     parser.add_argument("-o", "--output",             type=str, required=True,         help="Output, hull distance csv file name. ")
-        
+    parser.add_argument("--out_column",               type=str, default="ML_hull",     help="Column name that the computed hull distance is stored. (default: ML_hull)" )
+ 
     args = parser.parse_args()
 
     #readin csv that contains the compounds to evalutate hull and formation energy of the compound (energy/atom)
-    db = pd.read_csv(args.database_candidate, index_col=0)
+    db = pd.read_csv(args.database_candidate, )#index_col=0)
    
     #readin csv that contains the competing phase compound and formation energy (energy/atom)
     #the joblist of this csv is obtained via ML_hull_prepare.py 
@@ -178,7 +179,7 @@ if __name__ == "__main__":
         print("dict_convex len: ", len(dict_convex))
         print("MPI size: ", size)
             
-    db = update_hull_distance(db, dict_convex, col_formula=args.formula_column_candidate, col_formE=args.formE_column_candidate)
+    db = update_hull_distance(db, dict_convex, col_formula=args.formula_column_candidate, col_formE=args.formE_column_candidate, col_out=args.out_column)
     if rank == 0: db.to_csv(args.output)
 
 
