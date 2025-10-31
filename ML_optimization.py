@@ -43,6 +43,23 @@ from pymatgen.core import Lattice, Structure
 from pymatgen.core.operations import SymmOp
 from pymatgen.io.ase import AseAtomsAdaptor
 
+import warnings
+warnings.filterwarnings('ignore')
+
+# Suppress specific warnings from common libraries
+warnings.filterwarnings('ignore', category=UserWarning)
+warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+
+# Suppress PyMatGen warnings
+warnings.filterwarnings('ignore', module='pymatgen')
+
+# Suppress ASE warnings
+warnings.filterwarnings('ignore', module='ase')
+
+# Suppress NumPy warnings
+np.seterr(all='ignore')
+
 # Constants
 DEFAULT_TOLERANCE = 1e-10
 DEFAULT_SYMPREC = 0.01
@@ -116,97 +133,47 @@ def symmetrize_structure(structure: Structure, symprec: float = DEFAULT_SYMPREC)
         print(f"Warning: Could not symmetrize structure: {e}")
         return structure, None
 
-def get_structure(system: pd.Series) -> Tuple[Structure, str]:
+def get_structure(system: pd.Series, cell_col: str = 'cell', positions_col: str = 'positions', numbers_col: str = 'numbers', symmetrize: bool = False) -> Tuple[Structure, str]:
     """
     Convert pandas Series data to pymatgen Structure object.
     
     Args:
-        system: pandas Series containing structure data (cell, positions, numbers)
+        system: pandas Series containing structure data
+        cell_col: Column name for cell data (default: 'cell')
+        positions_col: Column name for positions data (default: 'positions')  
+        numbers_col: Column name for numbers data (default: 'numbers')
+        symmetrize: Whether to symmetrize the structure to primitive cell (default: False)
         
     Returns:
         Tuple of (Structure object, spacegroup symbol)
     """
-    cell = str_to_2d_array(system['cell'])
-    positions = str_to_2d_array(system['positions'])
+    cell = str_to_2d_array(system[cell_col])
+    positions = str_to_2d_array(system[positions_col])
     
     try:
-        numbers = str_to_2d_array(system['numbers'])
+        numbers = str_to_2d_array(system[numbers_col])
     except (KeyError, ValueError):
-        numbers = str_to_2d_array(system['numbers'].replace(' ', ','))
+        numbers = str_to_2d_array(system[numbers_col].replace(' ', ','))
     
     if cell is None or positions is None or numbers is None:
         raise ValueError("Could not parse structure data from system")
     
     lattice = Lattice(cell)
     structure = Structure(lattice, numbers, positions)
-    structure, spacegroup_symbol = symmetrize_structure(structure)
     
-    if spacegroup_symbol is None:
-        return structure, "Unknown"
-    
-    return structure, spacegroup_symbol.split()[0]
-
-def get_conven_structure(structure: Structure, spacegroup_symbol: str) -> Structure:
-    """
-    Convert primitive cell to conventional supercell (2 formula units).
-    
-    Args:
-        structure: Input primitive structure
-        spacegroup_symbol: Spacegroup symbol string
-        
-    Returns:
-        Conventional structure
-    """
-    # Define scaling matrices for different space groups
-    tetragonal_groups = ['I-4m2', 'I4/mmm']
-    cubic_groups = ['F-43m', 'Fm-3m', 'Fd-3m']
-    simple_cubic = ['Pm-3m']
-    
-    if spacegroup_symbol in tetragonal_groups:
-        scaling_matrix = np.array([
-            [0., 1., 1.],
-            [1., 0., 1.],
-            [1., 1., 0.]
-        ])
-        structure.make_supercell(scaling_matrix=scaling_matrix)
-        
-    elif spacegroup_symbol in cubic_groups:
-        scaling_matrix = np.array([
-            [0., 0., 1.],
-            [1., -1., 0.],
-            [1., 1., -1.]
-        ])
-        structure.make_supercell(scaling_matrix=scaling_matrix)
-
-        # Apply 45-degree rotation
-        theta = np.radians(45)
-        rotation_matrix = [
-            [np.cos(theta), np.sin(theta), 0],
-            [-np.sin(theta), np.cos(theta), 0],
-            [0, 0, 1]
-        ]
-        symmop = SymmOp.from_rotation_and_translation(rotation_matrix, [0, 0, 0])
-        structure.apply_operation(symmop)
-
-        # Clean and recreate structure
-        cleaned_lattice = clean_matrix(structure.lattice.matrix.copy())
-        cleaned_coords = clean_matrix(structure.frac_coords.copy())
-        structure = Structure(Lattice(cleaned_lattice), structure.species, cleaned_coords)
-        
-    elif spacegroup_symbol in simple_cubic:
-        pass  # No transformation needed
-        
+    if symmetrize:
+        structure, spacegroup_symbol = symmetrize_structure(structure)
+        if spacegroup_symbol is None:
+            return structure, "Unknown"
+        return structure, spacegroup_symbol.split()[0]
     else:
-        print(f'Warning: Unsupported spacegroup {spacegroup_symbol}')
-
-    # Validate lattice properties
-    lattice_matrix = structure.lattice.matrix
-    if np.count_nonzero(lattice_matrix - np.diag(np.diagonal(lattice_matrix))) != 0:
-        print('Warning: Lattice not diagonal.')
-    elif lattice_matrix[0, 0] != lattice_matrix[1, 1]:
-        print('Warning: a != b')
-
-    return structure
+        # Get spacegroup without symmetrizing
+        cell_data = (structure.lattice.matrix, structure.frac_coords, structure.atomic_numbers)
+        try:
+            spacegroup_symbol = spglib.get_spacegroup(cell_data, symprec=DEFAULT_SYMPREC)
+            return structure, spacegroup_symbol.split()[0] if spacegroup_symbol else "Unknown"
+        except Exception:
+            return structure, "Unknown"
 
 class StagnationFIRE(FIRE):
     """
@@ -256,8 +223,8 @@ class StagnationFIRE(FIRE):
                 changes = np.abs(np.diff(self.history))
                 
                 if np.all(changes < self.delta):
-                    print(f"Stopping FIRE due to stagnation in fmax. "
-                          f"delta={self.delta}, window={self.window}")
+                    # print(f"Stopping FIRE due to stagnation in fmax. "
+                    #       f"delta={self.delta}, window={self.window}")
                     result = True
                     
         return result
@@ -358,7 +325,7 @@ def create_calculator(model: str) -> Calculator:
         raise ImportError(f"Could not import calculator for model '{model}': {e}") from e
 
 
-def opt_loop_row(local_data: List, model: str, strain: List[float], heusler: bool = False) -> List:
+def opt_loop_row(local_data: List, model: str, strain: List[float], symmetrize: bool = False) -> List:
     """
     Perform optimization loop on local data structures.
     
@@ -378,18 +345,15 @@ def opt_loop_row(local_data: List, model: str, strain: List[float], heusler: boo
         try:
             structure, spacegroup_symbol = get_structure(row)
             
-            # Convert to conventional cell for Heusler compounds
-            if heusler:
-                structure = get_conven_structure(structure, spacegroup_symbol)
-            
             # Apply strain and re-symmetrize
             structure.apply_strain(strain)
-            structure, spacegroup_symbol = symmetrize_structure(structure)
+            if symmetrize:
+                structure, spacegroup_symbol = symmetrize_structure(structure)
             
             # Store initial state after strain
-            init_cell = str(structure.lattice.matrix.tolist())
+            init_cell      = str(structure.lattice.matrix.tolist())
             init_positions = str(structure.frac_coords.tolist())
-            init_numbers = str(list(structure.atomic_numbers))
+            init_numbers   = str(list(structure.atomic_numbers))
             
             # Convert to ASE and optimize
             atoms = AseAtomsAdaptor.get_atoms(structure)
@@ -397,15 +361,17 @@ def opt_loop_row(local_data: List, model: str, strain: List[float], heusler: boo
             final_structure = AseAtomsAdaptor.get_structure(atoms_opt)
             
             # Extract results
-            ml_cell = str(final_structure.lattice.matrix.tolist())
-            ml_energy = atoms_opt.get_total_energy() / atoms_opt.get_global_number_of_atoms()
+            ml_cell      = str(final_structure.lattice.matrix.tolist())
+            ml_positions = str(final_structure.frac_coords.tolist())
+            ml_numbers   = str(list(final_structure.atomic_numbers))
+            ml_energy    = atoms_opt.get_total_energy() / atoms_opt.get_global_number_of_atoms()
             
-            local_results.append([init_cell, init_positions, init_numbers, ml_cell, ml_energy])
+            local_results.append([init_cell, init_positions, init_numbers, ml_cell, ml_positions, ml_numbers, ml_energy])
             
         except Exception as e:
             print(f"Error processing structure: {e}")
             # Add placeholder result to maintain list structure
-            local_results.append([None, None, None, None, None])
+            local_results.append([None, None, None, None, None, None, None])
     
     return local_results 
 
@@ -495,47 +461,68 @@ def main():
     parser.add_argument(
         "-s", "--size", 
         type=int, 
-        required=True, 
-        help="Number of chunks for parallel processing (size > 0)."
+        default=1, 
+        help="Number of chunks for running separate jobs (size > 0). "
     )
     parser.add_argument(
         "-r", "--rank", 
         type=int, 
-        required=True, 
-        help="Rank of chunk for this job (0 <= rank <= size-1)."
+        default=0, 
+        help="The chunk number for this job (0 <= rank <= size-1)."
     )
-    parser.add_argument(
-        "--heusler2fu", 
-        type=bool, 
-        default=False, 
-        help="Convert Heusler compounds to conventional cell with 2 f.u. before applying strain."
-    )
+
     parser.add_argument(
         "--strain", 
-        nargs=3, 
-        type=float, 
-        default=[0.0, 0.0, 0.0],
-        help="Directional strain as three floats (e.g., 0.01 -0.02 0.00 for x/y/z). "
-             "Default is no strain."
+        type=str, 
+        default="0.0",
+        help="Strain to apply. Can be either a scalar (e.g., '0.01') for isotropic strain "
+             "or a 3x3 matrix (e.g., '[[0.01, 0.0, 0.0], [0.0, -0.02, 0.0], [0.0, 0.0, 0.0]]') "
+             "for anisotropic strain. Default is '0.0' (no strain)."
+    )
+
+    parser.add_argument(
+        "--symmetrize", 
+        action="store_true", 
+        help="Convert structures to primitive cell using spglib standardization after strain is applied. "
+             "Default is False (keep original structures)."
     )
 
     args = parser.parse_args()
 
+    # Parse strain argument - convert to float if scalar, numpy array if matrix
+    try:
+        # Try to parse as a matrix first
+        if args.strain.strip().startswith('['):
+            args.strain = np.array(ast.literal_eval(args.strain))
+        else:
+            # Parse as scalar
+            args.strain = float(args.strain)
+    except (ValueError, SyntaxError) as e:
+        raise ValueError(f"Invalid strain format: {args.strain}. Must be a scalar or valid matrix format.") from e
+
     # Load and process database
-    print(f"Loading database from {args.database_csv}")
+    if rank==0:
+        print(f"Loading database from {args.database_csv}")
     db = pd.read_csv(args.database_csv, index_col=0)
-    print(f"Database shape: {db.shape}")
+    if rank==0:
+        print(f"Database shape: {db.shape}")
+        print("Columns included in this database: ")
+        print(db.columns.tolist())
 
     # Chunk data for this process
     db_chunk = chunk_dataframe(db, args.size, args.rank)
-    print(f"Process {rank}/{size}: Processing chunk of size {db_chunk.shape}")
-    
+    if rank==0:
+        print(f"This run optimizes the chunk number {args.rank} out of {args.size} chunks. (numbering from 0)")
+        print(f"The size of this chunk  is {db_chunk.shape[0]}.")
+        print("="*40) 
+
     # Distribute data among MPI processes
     local_data = scatter_dataframe(db_chunk)
+    print(f"[Process {rank}/{size}] Processing chunk of size {len(local_data)}")
     
     # Perform optimization
-    print(f"Starting optimization with model: {args.model}")
-    local_results = opt_loop_row(local_data, args.model, args.strain, args.heusler2fu)
+    print(f"[Process {rank}/{size}] Starting optimization with model: {args.model}")
+    local_results = opt_loop_row(local_data, args.model, args.strain, args.symmetrize)
     
     # Gather results from all processes
     gathered_results = comm.gather(local_results, root=0)
@@ -549,14 +536,58 @@ def main():
             all_results.extend(sublist)
 
         # Update dataframe with results
-        result_columns = ['init_cell', 'init_positions', 'init_numbers', 'ML_cell', 'ML_e']
+        result_columns = ['strained_cell', 'strained_positions', 'strained_numbers', 'optimized_cell', 'optimized_positions', 'optimized_numbers', 'Energy (eV/atom)']
         db_chunk[result_columns] = all_results
 
         # Save results
         db_name = os.path.splitext(os.path.basename(args.database_csv))[0]
         os.makedirs(args.output, exist_ok=True)
-        output_file = os.path.join(args.output, f'{db_name}_{args.size}_{args.rank}.csv')
+        if args.size==1:
+            output_file = os.path.join(args.output, f'{db_name}.csv')
+        else:
+            output_file = os.path.join(args.output, f'{db_name}_{args.size}_{args.rank}.csv')
         db_chunk.to_csv(output_file)
+
+        print("="*40) 
+        print(f"The initial crystal structures are loaded from columns 'cell', 'positions', and 'numbers'. ")
+
+        if np.sum(np.abs(args.strain))==0: 
+            print("No strain applied. The initial structures are passed to optimization procedure directly.")
+        else: 
+            print(f"The initial crystal structures are strained by ε: \n{args.strain}")
+            
+            if np.isscalar(args.strain):
+                print(
+                    "Isotropic strain applied:\n"
+                    "  L' = L × (1 + ε)\n"
+                    "  where:\n"
+                    "    L  = original lattice matrix (3×3)\n"
+                    "    ε  = scalar strain (float), representing uniform expansion (+) or contraction (−)\n"
+                    "    L' = new lattice matrix after isotropic deformation\n"
+                    "  Effect:\n"
+                    "    → Uniformly scales all lattice vectors by (1 + ε)\n"
+                )
+            else:
+                print(
+                    "Anisotropic (general) strain applied:\n"
+                    "  L' = L × (I + ε)\n"
+                    "  where:\n"
+                    "    L  = original lattice matrix (3×3)\n"
+                    "    I  = 3×3 identity matrix (represents no deformation)\n"
+                    "    ε  = 3×3 strain tensor, input by --strain\n"
+                    "    L' = new lattice matrix after applying general strain\n"
+                    "  Effect:\n"
+                    "    → Applies directional and shear deformations to the lattice vectors\n"
+                )
+            print("The atom coordinations are adjusted accordingly.")
+            print("The strained structures are written to columns names 'strained_cell', 'strained_positions', and 'strained_numbers'.")
+            print("The strained structures are passed to optimization procedure.")
+
+        if args.symmetrize:
+            print("The structures are symmetrized to primitive cell by spglib before optimization.")
+
+        print('The optimized structures are written to columns names \'optimized_cell\', \'optimized_positions\', and \'optimized_numbers\'.')
+
         print(f"Results saved to {output_file}")
 
 
