@@ -518,10 +518,8 @@ def main():
 
     # Distribute data among MPI processes
     local_data = scatter_dataframe(db_chunk)
-    print(f"[Process {rank}/{size}] Processing chunk of size {len(local_data)}")
-    
-    # Perform optimization
-    print(f"[Process {rank}/{size}] Starting optimization with model: {args.model}")
+
+    print(f"[Process {rank}/{size}] Starting optimization of {len(local_data)} compounds with model {args.model}.")
     local_results = opt_loop_row(local_data, args.model, args.strain, args.symmetrize)
     
     # Gather results from all processes
