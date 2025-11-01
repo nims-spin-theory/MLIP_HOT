@@ -11,17 +11,27 @@ where:
     - n_i is the number of atoms of element i in the compound
     - E_i is the energy per atom of the terminal element i
 
-All energies are in energy per atom units.
+All energies are in eV per atom units.
 
 Example usage:
-    python ML_formE.py -f ./data/ -n "compounds*.csv" -t terminal_elements.csv -o results.csv
+    Basic usage:
+        python ML_formE.py -i compounds.csv -t terminal.csv -o results.csv
+    
+    Custom column names:
+        python ML_formE.py -i compounds.csv -t terminal.csv -o results.csv \\
+            --formula_column_compound "formula" \\
+            --energy_column "energy_per_atom" \\
+            --out_column "formation_energy"
+    
+    With specific terminal element column:
+        python ML_formE.py -i compounds.csv -t elements.csv -o out.csv \\
+            --formula_column_terminal "symbol"
 
 Author: [Author Name]
 Date: [Date]
 """
 
 import argparse
-import glob
 import os
 from typing import Dict, List
 
@@ -45,28 +55,6 @@ SUPPORTED_FILE_EXTENSIONS = ['.csv']
 def log_info(message: str, prefix: str = "INFO") -> None:
     """Simple logging function for consistent output formatting."""
     print(f"[{prefix}] {message}")
-
-
-def print_usage_examples():
-    """Print usage examples for the script."""
-    examples = """
-Usage Examples:
-    
-    Basic usage:
-        python ML_formE.py -f ./data/ -n "compounds*.csv" -t terminal.csv -o results.csv
-    
-    Custom column names:
-        python ML_formE.py -f ./data/ -n "*.csv" -t terminal.csv -o results.csv \\
-            --formula_column_compound "formula" \\
-            --energy_column "energy_per_atom" \\
-            --out_column "formation_energy"
-    
-    With specific terminal element column:
-        python ML_formE.py -f ./compounds/ -n "db_*.csv" -t elements.csv -o out.csv \\
-            --formula_column_terminal "symbol"
-    """
-    print(examples)
-
 
 def validate_dataframe(dataframe: pd.DataFrame, required_columns: List[str], 
                       dataframe_name: str = "DataFrame") -> None:
@@ -219,81 +207,59 @@ def update_formation_energies(dataframe: pd.DataFrame, terminal_energies: Dict[s
     return result_df
 
 
-def load_compound_database(folder_path: str, file_pattern: str) -> pd.DataFrame:
+def load_compound_database(file_path: str) -> pd.DataFrame:
     """
-    Load and concatenate multiple CSV files containing compound data.
+    Load a CSV file containing compound data.
     
     Args:
-        folder_path: Path to the folder containing CSV files
-        file_pattern: Glob pattern to match CSV files (e.g., "db*convex*.csv")
+        file_path: Path to the CSV file containing compound data
         
     Returns:
-        Concatenated DataFrame from all matching CSV files
+        DataFrame from the CSV file
         
     Raises:
-        FileNotFoundError: If no files match the pattern
-        ValueError: If files cannot be read or concatenated
+        FileNotFoundError: If the file doesn't exist
+        ValueError: If file cannot be read
     """
-    if not os.path.exists(folder_path):
-        raise FileNotFoundError(f"Folder not found: {folder_path}")
-    
-    csv_files = glob.glob(os.path.join(folder_path, file_pattern))
-    
-    if not csv_files:
-        raise FileNotFoundError(f"No CSV files found matching pattern '{file_pattern}' in {folder_path}")
-    
-    log_info(f"Found {len(csv_files)} CSV files to load")
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
     
     try:
-        dataframes = []
-        for file_path in csv_files:
-            df = pd.read_csv(file_path, index_col=0)
-            dataframes.append(df)
-            log_info(f"Loaded {len(df)} rows from {os.path.basename(file_path)}")
-        
-        combined_df = pd.concat(dataframes, ignore_index=False)
-        log_info(f"Combined database contains {len(combined_df)} total rows")
-        return combined_df
+        df = pd.read_csv(file_path, index_col=0)
+        log_info(f"Loaded {len(df)} rows from {os.path.basename(file_path)}")
+        return df
         
     except Exception as e:
-        raise ValueError(f"Error loading CSV files: {str(e)}")
+        raise ValueError(f"Error loading CSV file: {str(e)}")
 
 
 def main():
     """Main function to orchestrate the formation energy calculation process."""
     parser = argparse.ArgumentParser(
         description="Calculate formation energies from ML-predicted energies of compounds "
-                   "and terminal elements. All energies are in energy per atom.",
+                   "and terminal elements. All energies are in eV per atom.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
     # Required arguments
-    parser.add_argument("-f", "--database_folder", type=str, required=True,
-                       help="Path to the folder containing compound CSV files")
-    parser.add_argument("-n", "--database_name", type=str, required=True,
-                       help="Glob pattern for compound CSV files (e.g., 'db*convex*.csv')")
+    parser.add_argument("-i", "--input", type=str, required=True,
+                       help="Path to the compound CSV file")
     parser.add_argument("-t", "--database_terminal", type=str, required=True,
                        help="Path to terminal elements energy CSV file")
     parser.add_argument("-o", "--output", type=str, required=True,
                        help="Output CSV file path")
     
     # Optional arguments
-    parser.add_argument("--formula_column_compound", type=str, default="composition",
+    parser.add_argument("--formula_column_compound", type=str, default="optimized_formula",
                        help="Column name containing chemical formulas in compound database")
-    parser.add_argument("--formula_column_terminal", type=str, default="element",
+    parser.add_argument("--formula_column_terminal", type=str, default="optimized_formula",
                        help="Column name containing element symbols in terminal database")
-    parser.add_argument("--energy_column", type=str, default="ML_e",
+    parser.add_argument("--energy_column", type=str, default="Energy (eV/atom)",
                        help="Column name containing ML energies in both databases")
-    parser.add_argument("--out_column", type=str, default="ML_formE",
+    parser.add_argument("--out_column", type=str, default="Formation Energy (eV/atom)",
                        help="Column name for storing calculated formation energies")
-    parser.add_argument("--examples", action="store_true",
-                       help="Show usage examples and exit")
 
     args = parser.parse_args()
-    
-    if args.examples:
-        print_usage_examples()
-        return 0
     
     try:
         log_info("Loading terminal elements database...")
@@ -319,10 +285,7 @@ def main():
         log_info(f"Terminal elements: {list(terminal_energies.keys())}")
         
         log_info("Loading compound database...")
-        compound_db = load_compound_database(
-            folder_path=args.database_folder, 
-            file_pattern=args.database_name
-        )
+        compound_db = load_compound_database(file_path=args.input)
         
         # Validate compound database
         validate_dataframe(

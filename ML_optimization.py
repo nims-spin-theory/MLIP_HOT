@@ -365,13 +365,14 @@ def opt_loop_row(local_data: List, model: str, strain: List[float], symmetrize: 
             ml_positions = str(final_structure.frac_coords.tolist())
             ml_numbers   = str(list(final_structure.atomic_numbers))
             ml_energy    = atoms_opt.get_total_energy() / atoms_opt.get_global_number_of_atoms()
-            
-            local_results.append([init_cell, init_positions, init_numbers, ml_cell, ml_positions, ml_numbers, ml_energy])
+            ml_formula    = structure.composition.reduced_formula
+
+            local_results.append([init_cell, init_positions, init_numbers, ml_formula, ml_cell, ml_positions, ml_numbers, ml_energy])
             
         except Exception as e:
             print(f"Error processing structure: {e}")
             # Add placeholder result to maintain list structure
-            local_results.append([None, None, None, None, None, None, None])
+            local_results.append([None, None, None, None, None, None, None, None])
     
     return local_results 
 
@@ -534,7 +535,8 @@ def main():
             all_results.extend(sublist)
 
         # Update dataframe with results
-        result_columns = ['strained_cell', 'strained_positions', 'strained_numbers', 'optimized_cell', 'optimized_positions', 'optimized_numbers', 'Energy (eV/atom)']
+        result_columns = ['strained_cell', 'strained_positions', 'strained_numbers', 
+                          'optimized_formula', 'optimized_cell', 'optimized_positions', 'optimized_numbers', 'Energy (eV/atom)']
         db_chunk[result_columns] = all_results
 
         # Save results
@@ -585,6 +587,9 @@ def main():
             print("The structures are symmetrized to primitive cell by spglib before optimization.")
 
         print('The optimized structures are written to columns names \'optimized_cell\', \'optimized_positions\', and \'optimized_numbers\'.')
+        print('The energies of optimized structures are written to columns names \'Energy (eV/atom)\'.')
+        print('The formula of optimized structures are written to columns names \'optimized_formula\'.')
+
 
         print(f"Results saved to {output_file}")
 

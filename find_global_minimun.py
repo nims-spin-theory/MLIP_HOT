@@ -7,12 +7,16 @@ This script identifies the global minimum energy structures from multiple CSV fi
 It loads multiple datasets, groups them by a common identifier (e.g., composition or structure ID),
 and finds the entry with the minimum energy for each group.
 
+The output includes a 'source' column that identifies which database (file) each global minimum
+came from. By default, the source is the file path, but you can specify custom labels using --labels.
+
 Example usage:
-    # Using file pattern
+    # Using file pattern (source will be file paths)
     python find_global_minimun.py -f ./results/ -p "formE_*_*.csv" -o global_min.csv
 
-    # Using explicit file list
-    python find_global_minimun.py -i file1.csv file2.csv file3.csv -o global_min.csv
+    # Using explicit file list with custom labels
+    python find_global_minimun.py -i file1.csv file2.csv file3.csv \
+        --labels "DFT" "ML_model1" "ML_model2" -o global_min.csv
     
     # Specify custom energy column
     python find_global_minimun.py -f ./data/ -p "*.csv" -o output.csv --energy-column "ML_formE"
@@ -82,13 +86,14 @@ def get_global_minimum(dbs: Dict[str, pd.DataFrame],
     Find the global minimum energy structures from multiple databases.
     
     Args:
-        dbs: Dictionary mapping database names to DataFrames
+        dbs: Dictionary mapping database names to DataFrames (keys can be custom labels or file paths)
         energy_column: Name of the column containing energy values
         group_by_index: If True, group by DataFrame index (level 1 after concatenation)
         group_by_column: If specified, group by this column instead of index
         
     Returns:
-        DataFrame containing only the minimum energy entries for each group
+        DataFrame containing only the minimum energy entries for each group.
+        Includes a 'source' column indicating which database (label or file path) each minimum came from.
         
     Raises:
         KeyError: If energy_column doesn't exist in the DataFrames
@@ -110,20 +115,30 @@ def get_global_minimum(dbs: Dict[str, pd.DataFrame],
     # Find minimum energy for each group
     if group_by_column:
         log_info(f"Grouping by column: '{group_by_column}'")
-        result = combined.groupby(group_by_column).apply(
-            lambda group: group.loc[group[energy_column].idxmin()]
-        )
+        # Group by the specified column and find minimum
+        grouped = combined.groupby(group_by_column)
+        min_indices = grouped[energy_column].idxmin()
+        result = combined.loc[min_indices]
     else:
         log_info("Grouping by index (level 1)")
-        result = combined.groupby(level=1).apply(
-            lambda group: group.loc[group[energy_column].idxmin()]
-        )
+        # Group by the second level of the multi-index (original index)
+        grouped = combined.groupby(level=1)
+        min_indices = grouped[energy_column].idxmin()
+        result = combined.loc[min_indices]
     
     log_info(f"Found {len(result)} unique global minimum structures")
     
     # Add a column indicating which database each minimum came from
+    # Extract the source (level 0) from the multi-index
     if isinstance(result.index, pd.MultiIndex):
-        result['source_database'] = result.index.get_level_values(0)
+        result = result.copy()
+        result['source'] = result.index.get_level_values(0)
+        # Reset multi-index to single level
+        result.index = result.index.get_level_values(1)
+        result.index.name = 'structure_id'
+    else:
+        result = result.copy()
+        result['source'] = 'unknown'
     
     return result
 
@@ -144,9 +159,9 @@ def print_summary_statistics(result_df: pd.DataFrame, energy_column: str) -> Non
         print(f"  Max:    {energies.max():.6f}")
         print(f"  Median: {energies.median():.6f}")
     
-    if 'source_database' in result_df.columns:
-        print(f"\nSource Database Distribution:")
-        source_counts = result_df['source_database'].value_counts()
+    if 'source' in result_df.columns:
+        print(f"\nSource Distribution:")
+        source_counts = result_df['source'].value_counts()
         for source, count in source_counts.items():
             percentage = (count / len(result_df)) * 100
             print(f"  {source}: {count} ({percentage:.1f}%)")

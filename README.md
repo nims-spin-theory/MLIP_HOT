@@ -1,6 +1,10 @@
-# MLFF Script Collection
+# MLIP-based High-throughput Optimization and Thermodynamics (MLIP-HOT)
 
-A comprehensive toolkit for Machine Learning Force Field (MLFF) calculations, including formation energy evaluation, convex hull analysis, and structural optimization.
+A comprehensive toolkit for Machine Learning Interatomic Potential (MLIP) based
+calculations, including structural optimization, formation energy evaluation and
+convex hull analysis. This toolkit focuses on building a high-throughput pipline
+for computational material discovery.
+
 
 ## Overview
 
@@ -18,31 +22,31 @@ flowchart LR
   %% Inputs
   A[Initial Crystal Structure]
   D["Terminal Elements<br>DFT Structures (OQMD)"]
-  E["Competing Phases<br>DFT Structures (OQMD)"]
+  E["Convex Hull Phase<br>DFT Structures (OQMD)"]
 
   %% Computed outputs
   B1["Optimized Structure<br>and Energy"]
   B2["Terminal Element<br>Reference Energies"]
-  B3["Competing Phase<br>Reference Energies"]
+  B3["Convex Hull Phase<br>Reference Energies"]
   C["Formation Energy"]
-  F["Competing Phase<br>Formation Energies"]
-  J["Convex Hull Distance"]
+  F["Convex Hull Phase<br>Formation Energies"]
+  J["Distance to Convex Hull "]
 
   %% Workflow connections
   A -- prepare.py --> D
   A -- prepare.py --> E
-  A -- optimize.py --> B1
-  D -- optimize.py --> B2
-  E -- optimize.py --> B3
+  A -- MLIP_optimize.py --> B1
+  D -- MLIP_optimize.py --> B2
+  E -- MLIP_optimize.py --> B3
 
-  B1 -- form.py --> C
-  B2 -- form.py --> C
+  B1 -- MLIP_form.py --> C
+  B2 -- MLIP_form.py --> C
 
-  B2 -- form.py --> F
-  B3 -- form.py --> F
+  B2 -- MLIP_form.py --> F
+  B3 -- MLIP_form.py --> F
 
-  C --> J
-  F --> J
+  C -- MLIP_hull.py --> J
+  F -- MLIP_hull.py --> J
 
   %% Node styles
   classDef input fill:#b3e5fc,stroke:#0288d1,color:#0d47a1,stroke-width:1px;
