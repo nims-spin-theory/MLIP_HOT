@@ -2,31 +2,28 @@
 Convex Hull Phase Preparation for ML-predicted Formation Energies
 
 This script prepares competing phase data for convex hull analysis by extracting
-stable phases from the QMPY database for each unique chemical system found in
-the input compound database. 
+stable phases from the Materials Project database for each unique chemical system
+found in the input compound database. 
 
-This script is based on qmpy_rester:
-https://github.com/mohanliu/qmpy_rester
-
-Thus, the installation of QMPY to local device is not required.
-
+This script uses the Materials Project API (MPRester) to retrieve phase data.
+An API key is required - get yours at: https://materialsproject.org/api
 
 The script uses MPI for parallel processing to efficiently handle large datasets
 and multiple chemical systems.
 
 Example usage:
-    mpirun -n 4 python ML_hull_prepare_qmpy_rester.py -d compounds.csv -o convex_phases.csv
+    mpirun -n 4 python get_convex_hull_compounds_mp_rester.py -d compounds.csv -o convex_phases.csv --api_key YOUR_API_KEY
 """
 
 import argparse
 import os
-from typing import Dict, List, Optional, Tuple, Any, Union
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 from ase.formula import Formula
 from mpi4py import MPI
-from pymatgen.core import Lattice, Structure
-import qmpy_rester as qr
+from pymatgen.ext.matproj import MPRester
+from pymatgen.analysis.phase_diagram import PhaseDiagram
 from tqdm import tqdm
 
 def log_info(message: str, rank: int = 0, current_rank: int = 0) -> None:
@@ -53,14 +50,14 @@ def print_usage_examples() -> None:
 Usage Examples:
     
     Basic usage with MPI:
-        mpirun -n 4 python ML_hull_prepare_qmpy_rester.py -d compounds.csv -o competing_phases.csv
+        mpirun -n 4 python get_convex_hull_compounds_mp_rester.py -d compounds.csv -o competing_phases.csv --api_key YOUR_API_KEY
     
     Single process:
-        python ML_hull_prepare_qmpy_rester.py -d compounds.csv -o competing_phases.csv
+        python get_convex_hull_compounds_mp_rester.py -d compounds.csv -o competing_phases.csv --api_key YOUR_API_KEY
     
     Custom composition column:
-        mpirun -n 8 python ML_hull_prepare_qmpy_rester.py -d data.csv -o phases.csv \\
-            --composition_column "formula"
+        mpirun -n 8 python get_convex_hull_compounds_mp_rester.py -d data.csv -o phases.csv \\
+            --composition_column "formula" --api_key YOUR_API_KEY
     """
     if rank == 0:
         print(examples)
@@ -77,75 +74,6 @@ def print_mpi_info() -> None:
         else:
             print("  Running in single-process mode")
         print()
-
-
-def oqmd_entry_to_structure(entry: Dict) -> Structure:
-    """
-    Convert an OQMD-style entry dict (e.g., from QMPYRester/OQMD API) to a pymatgen Structure.
-
-    Expected keys in `entry`:
-      - "unit_cell": 3x3 list of lattice vectors in Å (fractional basis assumed for coords below)
-      - "sites": list of site specs in either format:
-          * "Fe @ 0 0 0" (element @ frac_x frac_y frac_z)
-          * {"element": "Fe", "frac_coords": [0, 0, 0]}  # also accepts "coords" alias
-    Optional (ignored for structure build): "spacegroup", "composition", etc.
-
-    Returns
-    -------
-    Structure
-        A pymatgen Structure with the given lattice and fractional coordinates.
-    """
-    if "unit_cell" not in entry or "sites" not in entry:
-        raise KeyError("Entry must contain 'unit_cell' and 'sites'.")
-
-    # 1) Lattice
-    lattice = Lattice(entry["unit_cell"])
-
-    # 2) Parse sites
-    species: List[str] = []
-    frac_coords: List[List[float]] = []
-
-    def _parse_site(site: Union[str, Dict]) -> Tuple[str, List[float]]:
-        if isinstance(site, str):
-            # format: "Fe @ 0 0 0"
-            elem, sep, xyz = site.partition("@")
-            if not sep:
-                raise ValueError(f"Site string missing '@': {site}")
-            elem = elem.strip()
-            coords = [float(v) for v in xyz.strip().replace(",", " ").split()]
-            if len(coords) != 3:
-                raise ValueError(f"Expected 3 fractional coords, got {coords} in site: {site}")
-            return elem, coords
-
-        elif isinstance(site, dict):
-            # format: {"element": "Fe", "frac_coords": [0,0,0]} or {"element":"Fe","coords":[...]}
-            if "element" not in site:
-                raise KeyError(f"Site dict missing 'element': {site}")
-            elem = str(site["element"]).strip()
-
-            # Prefer explicit frac coords; fallback to generic "coords" (assumed fractional)
-            coords_key = "frac_coords" if "frac_coords" in site else "coords"
-            if coords_key not in site:
-                raise KeyError(f"Site dict missing 'frac_coords' or 'coords': {site}")
-
-            coords_raw = site[coords_key]
-            if len(coords_raw) != 3:
-                raise ValueError(f"Expected 3 fractional coords, got {coords_raw} in site: {site}")
-            coords = [float(v) for v in coords_raw]
-            return elem, coords
-
-        else:
-            raise TypeError(f"Unsupported site type: {type(site)}; value: {site}")
-
-    for s in entry["sites"]:
-        elem, coords = _parse_site(s)
-        species.append(elem)
-        frac_coords.append(coords)
-
-    # 3) Build structure (coords are fractional by construction)
-    struct = Structure(lattice, species, frac_coords, coords_are_cartesian=False)
-
-    return struct
 
 
 def extract_unique_chemical_systems(dataframe: pd.DataFrame, 
@@ -204,14 +132,15 @@ def extract_unique_chemical_systems(dataframe: pd.DataFrame,
     
     return unique_systems
 
-def extract_competing_phases(chemical_systems: List[List[str]]) -> Optional[pd.DataFrame]:
+def extract_competing_phases(chemical_systems: List[List[str]], api_key: str) -> Optional[pd.DataFrame]:
     """
-    Extract competing phases from QMPY database for given chemical systems.
+    Extract competing phases from Materials Project database for given chemical systems.
     
     Uses MPI to distribute workload across multiple processes for efficiency.
     
     Args:
         chemical_systems: List of chemical systems, each as a list of element symbols
+        api_key: Materials Project API key
         
     Returns:
         DataFrame containing competing phase data (only on rank 0), None on other ranks
@@ -234,22 +163,45 @@ def extract_competing_phases(chemical_systems: List[List[str]]) -> Optional[pd.D
     # Process local chemical systems with progress bar (only show on rank 0)
     for elements in tqdm(local_systems, disable=(rank != 0), 
                         desc=f"Rank {rank} extracting phases"):
-        elements_str = '-'.join(elements)
-
         try:
-            with qr.QMPYRester() as q:
-                kwargs = {
-                    "composition": elements_str,  # composition in phase
-                    "stability": "0",             # hull distance 
-                    "natom": "<10",               # number of atoms less than 10
-                    }
-                list_of_data = q.get_oqmd_phases(verbose=False, **kwargs)['data']
+            with MPRester(api_key) as mpr:
+                # 1) Fetch entries with formation energies for the given chemical system
+                entries = mpr.get_entries_in_chemsys(elements)
 
-            for structure in list_of_data:
-                phase_data = extract_phase_data(structure)
-                if phase_data:
-                    local_results.append(phase_data)
+                # 2) Build phase diagram and get stable entries
+                phase_diagram = PhaseDiagram(entries)
+                stable_entries = phase_diagram.stable_entries
+
+                # 3) Extract relevant data from each stable entry
+                for entry in stable_entries:
+                    mp_id = entry.data.get('material_id')
                     
+                    E_Form = phase_diagram.get_form_energy_per_atom(entry)          
+                    E_Hull = phase_diagram.get_e_above_hull(entry)
+                    
+                    # 4) Fetch structure from MP
+                    if mp_id:
+                        try:
+                            structure = mpr.get_structure_by_material_id(mp_id)
+                            
+                            phase_data = {
+                                'composition': str(structure.composition.reduced_formula),
+                                'cell': str(structure.lattice.matrix.tolist()),
+                                'positions': str(structure.frac_coords.tolist()),
+                                'numbers': str(list(structure.atomic_numbers)),
+                                'material_id': mp_id,
+                                'MP Formation energy (eV/atom)': E_Form,
+                                'MP Hull distance (eV/atom)': E_Hull,
+                                'natoms': structure.num_sites,
+                                'spacegroup': structure.get_space_group_info()[0]
+                            }
+                            
+                            local_results.append(phase_data)
+                            
+                        except Exception as struct_error:
+                            log_warning(f"Failed to fetch structure for {mp_id}: {struct_error}", 
+                                      current_rank=rank)
+
         except Exception as e:
             failed_systems.append((elements, str(e)))
             log_warning(f"Failed to process system {elements}: {e}", current_rank=rank)
@@ -271,38 +223,6 @@ def extract_competing_phases(chemical_systems: List[List[str]]) -> Optional[pd.D
         return None
 
 
-def extract_phase_data(structure) -> Optional[Dict[str, Any]]:
-    """
-    Extract relevant data from a QMPY structure object.
-    
-    Args:
-        structure: QMPY structure object
-        
-    Returns:
-        Dictionary containing extracted phase data, or None if extraction fails
-    """
-    try:
-        # Parse structure from POSCAR
-        pymatgen_structure = oqmd_entry_to_structure(structure)
-        
-        phase_data = {
-            'composition': str(pymatgen_structure.composition.reduced_formula),
-            'cell': str(pymatgen_structure.lattice.matrix.tolist()),
-            'positions': str(pymatgen_structure.frac_coords.tolist()),
-            'numbers': str(list(pymatgen_structure.atomic_numbers)),
-            'entry_id': structure['entry_id'],
-            'calculation_id': structure['calculation_id'],
-            'OQMD Formation energy (eV/atom)': structure['delta_e'],
-            'OQMD Hull distance (eV/atom)': structure['stability'],
-            'natoms': structure['natoms'],
-            'spacegroup': structure['spacegroup']
-        }
-        
-        return phase_data
-        
-    except Exception as e:
-        log_warning(f"Failed to extract data from structure {structure}: {e}")
-        return None
 
 
 def combine_phase_results(all_results: List[List[Dict]], 
@@ -334,10 +254,10 @@ def combine_phase_results(all_results: List[List[Dict]],
     phases_df = pd.DataFrame(flat_results)
     log_info(f"Created DataFrame with {len(phases_df)} phases")
     
-    # Remove duplicates based on calculation ID
-    if 'calculation_id' in phases_df.columns:
+    # Remove duplicates based on material ID
+    if 'material_id' in phases_df.columns:
         initial_count = len(phases_df)
-        phases_df = phases_df.drop_duplicates(subset=['calculation_id'])
+        phases_df = phases_df.drop_duplicates(subset=['material_id'])
         removed_count = initial_count - len(phases_df)
         
         if removed_count > 0:
@@ -380,7 +300,7 @@ def main() -> int:
         Exit code (0 for success, 1 for error)
     """
     parser = argparse.ArgumentParser(
-        description="Extract competing phases from QMPY database for convex hull analysis. "
+        description="Extract competing phases from Materials Project database for convex hull analysis. "
                    "Processes compounds database to identify unique chemical phase space and "
                    "extracts stable phases for each system using MPI parallelization.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -391,6 +311,8 @@ def main() -> int:
                        help="Path to compounds CSV file containing compositions for hull evaluation")
     parser.add_argument("-o", "--output", type=str, required=True,
                        help="Output CSV file path for competing phases database")
+    parser.add_argument("--api_key", type=str, required=True,
+                       help="API key for accessing the Materials Project database")
     
     # Optional arguments
     parser.add_argument("--composition_column", type=str, default="composition",
@@ -428,8 +350,8 @@ def main() -> int:
         )
         
         # Extract competing phases using MPI
-        log_info("Extracting competing phases from QMPY database using Rester...", current_rank=rank)
-        competing_phases_db = extract_competing_phases(chemical_systems)
+        log_info("Extracting competing phases from Materials Project database...", current_rank=rank)
+        competing_phases_db = extract_competing_phases(chemical_systems, api_key=args.api_key)
         
         # Save results (only on rank 0)
         if rank == 0:

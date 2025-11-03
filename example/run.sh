@@ -67,7 +67,7 @@ export OMP_NUM_THREADS=1
 #     -m "mattersim" \
 #     -o "terminal_elements_energy" 
 
-# python ../ML_formE.py -i example_data_result_global_min.csv -t terminal_elements_energy/terminal_elements.csv -o example_data_result_formation_energy.csv
+# python ../ML_formE.py -i example_datbash a_result_global_min.csv -t terminal_elements_energy/terminal_elements.csv -o example_data_result_formation_energy.csv
 
 #####################################
 
@@ -76,8 +76,12 @@ export OMP_NUM_THREADS=1
 #     -m "mattersim" \
 #     -o "convex_hull_phase" 
 
-mpirun -np 10 python ../ML_hull_prepare_qmpy_rester.py \
-       -d example_data_10.csv -o tmp_competing_phases.csv
+# mpirun -np 10 python ../ML_hull_prepare_qmpy_rester.py \
+#        -d example_data_10.csv -o tmp_competing_phases.csv
+    
+mpirun -np 2 python ../get_convex_hull_compounds_mp_rester.py \
+       -d example_data_10.csv -o tmp_competing_phases.csv \
+       --api_key='pJx41Nd1Bl2zMSeN8JPeo9a65TJG0dAY'
     
 
 

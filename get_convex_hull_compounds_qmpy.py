@@ -270,8 +270,7 @@ def extract_phase_data(structure) -> Optional[Dict[str, Any]]:
             'atomic_numbers': str(list(pymatgen_structure.atomic_numbers)),
             'calculation_id': structure.calculation.id,
             'total_energy': structure.calculation.energy,
-            'formation_energy': structure.formation.delta_e if structure.formation else None,
-            'is_element': structure.natoms == 1,
+            'OQMD Formation energy (eV/atom)': structure.formation.delta_e if structure.formation else None,
             'num_atoms': structure.natoms,
             'space_group': getattr(structure.calculation, 'spacegroup', None)
         }
