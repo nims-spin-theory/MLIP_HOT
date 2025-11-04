@@ -59,7 +59,7 @@ DEFAULT_MAX_STEPS = 200
 # Supported ML models
 SUPPORTED_MODELS = {
     'chgnet', '7net-0', '7net-l3i5', '7net-mf-ompa', 'mattersim', 
-    'hienet', 'esen_30m_oam'
+    'hienet', 'eqV2', 'esen_30m_oam'
 }
 
 # Models that support specific patterns
@@ -266,18 +266,19 @@ def opt_with_symmetry_mod(
     
     return atoms
     
-def create_calculator(model: str) -> Calculator:
+def create_calculator(model: str, checkpoint_path: Optional[str] = None) -> Calculator:
     """
     Create and return the appropriate ML calculator based on model name.
     
     Args:
         model: Name of the ML model to use
+        checkpoint_path: Path to checkpoint file (required for eqV2 and esen_30m_oam models)
         
     Returns:
         Initialized calculator object
         
     Raises:
-        ValueError: If model is not supported
+        ValueError: If model is not supported or checkpoint_path is missing for models that require it
         ImportError: If required dependencies are not available
     """
     try:
@@ -297,11 +298,21 @@ def create_calculator(model: str) -> Calculator:
             from mattersim.forcefield import MatterSimCalculator
             return MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device="cpu")
         
-        elif 'eqV2' in model or 'esen_30m_oam' in model:
+        elif 'eqV2' in model or 'esen' in model:
             from fairchem.core.common.relaxation.ase_utils import OCPCalculator
-            checkpoint_path = f'./fairchem_checkpoints/{model}.pt'
+            
+            if checkpoint_path is None:
+                raise ValueError(
+                    f"Model '{model}' requires a checkpoint file. "
+                    f"Please provide the path using --checkpoint_path argument."
+                )
+            
             if not os.path.exists(checkpoint_path):
-                raise FileNotFoundError(f"Checkpoint file not found: {checkpoint_path}")
+                raise FileNotFoundError(
+                    f"Checkpoint file not found: {checkpoint_path}\n"
+                    f"Please ensure the file exists and the path is correct."
+                )
+            
             return OCPCalculator(checkpoint_path=checkpoint_path, cpu=True)
         
         elif model == 'hienet':
@@ -315,7 +326,7 @@ def create_calculator(model: str) -> Calculator:
         raise ImportError(f"Could not import calculator for model '{model}': {e}") from e
 
 
-def opt_loop_row(local_data: List, model: str, strain: List[float], symmetrize: bool = False) -> List:
+def opt_loop_row(local_data: List, model: str, strain: List[float], symmetrize: bool = False, checkpoint_path: Optional[str] = None) -> List:
     """
     Perform optimization loop on local data structures.
     
@@ -323,12 +334,13 @@ def opt_loop_row(local_data: List, model: str, strain: List[float], symmetrize: 
         local_data: List of structure data to optimize
         model: Name of ML model to use
         strain: Strain values to apply [x, y, z]
-        heusler: Whether to convert Heusler compounds to conventional cell (2 f.u.)
+        symmetrize: Whether to convert structures to primitive cell
+        checkpoint_path: Path to checkpoint file (required for eqV2 and esen_30m_oam models)
         
     Returns:
         List of optimization results for each structure
     """
-    calc = create_calculator(model)
+    calc = create_calculator(model, checkpoint_path)
     local_results = []
     
     for row in local_data:
@@ -478,7 +490,21 @@ def main():
              "Default is False (keep original structures)."
     )
 
+    parser.add_argument(
+        "--checkpoint_path",
+        type=str,
+        default=None,
+        help="Path to the checkpoint file for eqV2 or esen_30m_oam models. "
+             "Required when using eqV2_* or esen_30m_oam models. "
+             "Example: './fairchem_checkpoints/eqV2_31M_omat.pt'"
+    )
+
     args = parser.parse_args()
+
+    # Validate checkpoint_path for models that require it
+    if ('eqV2' in args.model or 'esen_30m_oam' in args.model) and args.checkpoint_path is None:
+        parser.error(f"Model '{args.model}' requires --checkpoint_path argument. "
+                    f"Please provide the path to the checkpoint file.")
 
     # Parse strain argument - convert to float if scalar, numpy array if matrix
     try:
@@ -511,7 +537,7 @@ def main():
     local_data = scatter_dataframe(db_chunk)
 
     print(f"[Process {rank}/{size}] Starting optimization of {len(local_data)} compounds with model {args.model}.")
-    local_results = opt_loop_row(local_data, args.model, args.strain, args.symmetrize)
+    local_results = opt_loop_row(local_data, args.model, args.strain, args.symmetrize, args.checkpoint_path)
     
     # Gather results from all processes
     gathered_results = comm.gather(local_results, root=0)

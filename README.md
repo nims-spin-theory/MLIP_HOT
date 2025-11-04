@@ -1,17 +1,35 @@
 # MLIP-based High-throughput Optimization and Thermodynamics (MLIP-HOT)
 
-A comprehensive toolkit for Machine Learning Interatomic Potential (MLIP) based
-calculations, including structural optimization, formation energy evaluation and
-convex hull analysis. This toolkit focuses on building a high-throughput pipeline
-for computational material discovery.
+A comprehensive toolkit for Machine Learning Interatomic Potential (MLIP) based calculations, including structural optimization, formation energy evaluation and convex hull analysis. This toolkit focuses on building a high-throughput pipeline for computational material discovery.
+
+The method was described and applied in this work: https://arxiv.org/abs/2508.20556. Please cite this work and the MLIP models you use when applying the scripts in this repository.
 
 
 ## Overview
 
 This repository contains Python scripts and examples for:
-- **Formation Energy Calculation**: Calculate formation energies using ML energies and reference terminal elements
-- **Convex Hull Analysis**: Prepare competing phases from OQMD database and evaluate hull distances
-- **Structural Optimization**: Optimize crystal structures using various ML force fields (CHGNet, EquiformerV2, etc.)
+- **Structural Optimization**: Optimize crystal structures using various MLIPs (CHGNet, MatterSim, eSEN, etc.)
+- **Formation Energy Calculation**: Calculate formation energies using MLIP
+- **Convex Hull Analysis**: Calculate distance to convex hull using MLIP
+
+## Prerequisites
+
+Before using this toolkit, you need to have **Miniconda** or **Anaconda** installed on your system. Miniconda is a minimal installer for conda, which is used to create isolated Python environments for different MLIP models.
+
+**Installing Miniconda:**
+
+1. Download Miniconda from the official website: https://docs.conda.io/en/latest/miniconda.html
+2. Choose the installer for your operating system (Linux, macOS, or Windows)
+3. Follow the installation instructions for your platform
+
+**Verify Installation:**
+```bash
+conda --version
+```
+
+Once conda is installed, you can create separate environments for each MLIP model as described in the **MLIP Package Installation** section below.
+
+
 ## Key Features
 
 - **MPI Parallelization**: Efficient processing of large datasets through distributed computing
@@ -96,20 +114,25 @@ flowchart LR
 
 An example input CSV file containing 100 compounds is included in the `example` directory. The following sections demonstrate typical usage for each script, concluding with a comprehensive workflow example that shows how to: (1) determine ground state structures and energies, (2) calculate formation energies, and (3) evaluate thermodynamic stability via convex hull distance.
 
-**Note:** The examples below show basic usage. Each script supports additional flags for greater flexibility. Run `python script_name.py -h` to view all available options and usage examples.
+**Important Notes:**
 
+1. **Additional Options**: The examples below show basic usage. Each script supports additional flags for greater flexibility. Run `python script_name.py -h` to view all available options and usage examples.
+
+2. **Hardware Requirements**: No GPU device is required. This toolkit applies pre-trained MLIPs and can run efficiently on CPU.
+
+3. **MLIP Environment Management**: Before using this toolkit, install the MLIP package for your chosen model. Installation instructions for each MLIP are provided in the **MLIP Package Installation** section. We recommend installing each MLIP package in a separate conda environment. For the examples below using `mattersim`:
+
+   ```bash
+   conda create -n MLIP_mattersim python=3.9
+   conda activate MLIP_mattersim
+   pip install mattersim
+   ```
+ 
 ### 1. Structure Optimization
 
 #### Basic Structure Optimization
 
-Optimization of crystal structures using different MLIP models is done using
-`MLIP_optimize.py`. The input csv file includes initial guess of crystal
-structure defined by columns `cell`, `positions`, and `numbers` for
-optimization. Please refer the example input csv for the input format
- requirement. The optimized structure and corresponding energy are stored as
-columns `optimized_formula`, `optimized_cell`, `optimized_positions`,
-`optimized_numbers` ,`Energy (eV/atom)`. The details of the procedure and output
-is shown when the code is executed. Please check these info for more details.
+Optimize crystal structures using different MLIP models with `MLIP_optimize.py`. The input CSV file must contain columns `cell`, `positions`, and `numbers` defining the initial crystal structure. Refer to the example input CSV for format requirements. The optimized structure and corresponding energy are stored in columns `optimized_formula`, `optimized_cell`, `optimized_positions`, `optimized_numbers`, and `Energy (eV/atom)`. Details of the procedure and output are displayed during execution.
 
 ```bash
 # Using mattersim model
@@ -127,10 +150,7 @@ mpirun -np 4 python MLIP_optimize.py \
 
 #### Optimization with Strain Perturbations
 
-Apply strain perturbations before optimization initialization to explore
-different initial structural configurations by flag `--strain`.  The strained
-structures are stored in columns `strained_cell`, `strained_positions`, and
-`strained_numbers`,
+Apply strain perturbations before optimization to explore different initial structural configurations using the `--strain` flag. The strained structures are stored in columns `strained_cell`, `strained_positions`, and `strained_numbers`.
 
 ```bash
 # Scalar input for isotropic strain
@@ -151,16 +171,9 @@ mpirun -np 10 python MLIP_optimize.py \
 #   --strain: Strain magnitude (scalar for isotropic, 3x3 matrix for anisotropic)
 ```
 
-#### Submit dataset chunks separately across multiple computing resources
+#### Submit Dataset Chunks Separately Across Multiple Computing Resources
 
-Within high-throughput research, the number of screened compounds is generally
-very large. Thus, it is more efficient to divide the database into several chunks
-and run optimization of each chunk separately on multiple computation nodes.
-For example, we can divide the database into 20 chunks and run each chunk on one
-computer and concatenate all results at the end. This is specified by the flags
-`-s` and `-r`. The `-s` flag specifies the number of chunks to generate. The `-r`
-flag specifies the chunk to run in the current calculation. After all chunks are
-calculated, all results can be concatenated by the script `concat_csv.py`.
+In high-throughput research, the number of screened compounds is often very large. It is more efficient to divide the database into several chunks and run optimization of each chunk separately on multiple computation nodes. For example, divide the database into 20 chunks, run each chunk on one computer, and concatenate all results at the end. This is controlled by the `-s` and `-r` flags: `-s` specifies the number of chunks to generate, and `-r` specifies which chunk to process in the current calculation. After all chunks are calculated, results can be concatenated using `concat_csv.py`.
 
 ```bash
 # Run optimization by separating database into 3 chunks
@@ -184,18 +197,14 @@ python concat_csv.py \
 # Flags:
 #   -f: Folder path containing CSV files to concatenate
 #   -p, --pattern: Glob pattern to match specific files (e.g., "*.csv", "data_*.csv")
-#   -o, --output: Output csv filename for concatenated results
+#   -o, --output: Output CSV filename for concatenated results
 ```
-The script `concat_csv.py` prints the names of files for concatenation and 
-the chunks that are not completed.
 
-#### Finding Global Minimum from various initial structures
+The script `concat_csv.py` prints the names of files for concatenation and identifies any incomplete chunks.
 
-Initialized from different initial structures, the optimization can end in
-different structures (local minima) and energies. This is the same as the DFT-based
-optimization approach. To determine the real ground state, we need to compare
-the energies of local minima to find the global minimum as the ground state.
-This is done by the script `find_global_minimum.py`. 
+#### Finding Global Minimum from Various Initial Structures
+
+When initialized from different initial structures, optimization can converge to different structures (local minima) with different energies—the same behavior as DFT-based optimization. To determine the true ground state, compare the energies of local minima to find the global minimum using the `find_global_minimum.py` script. 
 
 
 ```bash
@@ -211,8 +220,7 @@ python find_global_minimum.py \
 #   --labels: Optional custom labels for each input file (order matches input files)
 ```
 
-To track which file each minimum came from, the CSV file path is specified
-for each compound by default. It can also be specified by the flag `--labels`; the order of labels is the same as the order of input files.
+To track which file the global minimum came from, the CSV file path is specified for each compound by default. Custom labels can be provided using the `--labels` flag (order matches input files).
 
 ### 2. Formation Energy Calculation
 
@@ -228,11 +236,7 @@ where:
 
 #### Script Usage
 
-Thus, we need to obtain the energy of elements. `terminal_elements.csv` file
-containing all elements is provided in `example` folder. Apply
-`MLIP_optimize.py` to the `terminal_elements.csv` first and then use the output
-and the compounds optimization results to get formation energy using
-`MLIP_form.py` script.
+To calculate formation energies, we need the energies of constituent elements. A `terminal_elements.csv` file containing all elements ground states structure from OQMD database is provided in the `example` folder. First, apply `MLIP_optimize.py` to optimize the terminal elements, then use the output along with the compound optimization results to calculate formation energies, using `MLIP_form.py` script 
 
 ```bash
 # Step 1: Optimize terminal elements
@@ -254,11 +258,10 @@ python MLIP_form.py \
 ```
 
 ### 3. Convex Hull Analysis
+
 #### Definition
-The **distance to the convex hull** measures how far a compound’s formation
-energy lies above the thermodynamic stability limit defined by all possible
-competing phases in a chemical system. It quantifies **how unstable** a compound
-is relative to the most stable combinations of phases at the same composition.
+
+The **distance to the convex hull** measures how far a compound's formation energy lies above the thermodynamic stability limit defined by all possible competing phases in a chemical system. It quantifies how unstable a compound is relative to the most stable combinations of phases at the same composition.
 
 \[ E_\text{hull} = E_\text{form} - E_\text{form}^\text{(hull)} \]
 
@@ -271,16 +274,10 @@ where:
 - **\( E_\text{hull} > 0 \)** → the compound is **metastable or unstable**, with a tendency to decompose into the phases that form the convex hull at the same composition.
 
 #### Script Usage
-First, we need to construct the convex hull of the chemical system using the
-same MLIP. To do this, we get the DFT structures from OQMD database or Materials
-Project database and use them as the initial structures for MLIP optimization
-and then formation energy calculation. Using the convex hull compounds formation
-energy and the formation energy of screened compounds, we can use `MLIP_hull.py`
-script to calculate hull distance. 
 
-Here is an example using DFT structures from OQMD database using QMPY. QMPY is
-an open-source Python library developed as the data management and analysis
-interface for the OQMD database.   
+To construct the convex hull of a chemical system using the same MLIP, obtain DFT structures from the OQMD or Materials Project database and use them as initial structures for MLIP optimization and formation energy calculation. With the convex hull compounds' formation energies and the formation energies of screened compounds, use the `MLIP_hull.py` script to calculate hull distances.
+
+The example below uses DFT structures from the OQMD database via QMPY, an open-source Python library for OQMD database management and analysis.   
 
 ```bash
 # Get competing phases from OQMD database
@@ -311,9 +308,10 @@ mpirun -np 4 python MLIP_hull.py \
 #   -o: Output file containing hull distance (eV/atom)
 ```
 
-#### Other scripts to get convex hull compounds information 
+#### Other Scripts to Get Convex Hull Compounds Information
 
-##### 1. Get competing phases from Materials Project 
+##### 1. Get Competing Phases from Materials Project
+
 This requires an API key, which can be obtained here: https://materialsproject.org/api
 ```bash
 mpirun -np 10 python get_convex_hull_compounds_mp_rester.py \
@@ -325,9 +323,9 @@ mpirun -np 10 python get_convex_hull_compounds_mp_rester.py \
 #   --api_key: Materials Project API key
 ```
 
-##### 2. Using OQMD database on local machine
-The OQMD database can be installed on a local machine, following the instructions
-here: https://static.oqmd.org/static/docs/getting_started.html
+##### 2. Using OQMD Database on Local Machine
+
+The OQMD database can be installed on a local machine following the instructions here: https://static.oqmd.org/static/docs/getting_started.html
 
 ```bash
 mpirun -np 4 python get_convex_hull_compounds_qmpy.py \
@@ -335,8 +333,7 @@ mpirun -np 4 python get_convex_hull_compounds_qmpy.py \
     -o convex_hull_compounds.csv
 ```
 
-To use this script, the user configuration of the local database needs to be
-set up in the script:
+To use this script, configure the local database connection in the script:
 ```python
 DEFAULT_DB_CONFIG = {
     'name': 'oqmd__v1_6',
@@ -349,7 +346,8 @@ DEFAULT_DB_CONFIG = {
 
 ### Complete Workflow Example
 
-This example demonstrates a complete pipeline from structure optimization to hull distance calculation. The workflow includes:
+This example demonstrates a complete pipeline from structure optimization to hull distance calculation:
+
 1. Multiple optimization runs with different strain perturbations to find global minima
 2. Terminal element energy calculations for formation energy reference
 3. Convex hull phase preparation and optimization
@@ -472,13 +470,115 @@ echo "Workflow complete! Final results in example_data_final_results.csv"
 - `example_data_final_results.csv`: Final results including hull distances (eV/atom)
 
 **Key Points:**
+
 - Using multiple strain strategies increases the chance of finding true global minima
 - Dividing datasets into chunks (`-s` and `-r` flags) enables parallel processing across different compute nodes
-- The convex hull analysis requires the target compounds, terminal elements, and competing phases to all be optimized with the same MLIP model
-- In practice, the convex hull compounds can be generated at first and run
-  optimization of screened compounds, elements, and convex hull compounds at the
-  same time. 
+- The convex hull analysis requires target compounds, terminal elements, and competing phases to all be optimized with the same MLIP model
+- In practice, convex hull compounds can be generated first, then optimization of screened compounds, elements, and convex hull compounds can run simultaneously 
 
 
+## MLIP Package Installation
 
+This section provides conda environment setup instructions for each supported MLIP model.
+
+### CHGNet
+
+Website: https://chgnet.lbl.gov/
+
+```bash
+conda create -n MLIP_chgnet python=3.10
+conda activate MLIP_chgnet
+pip install chgnet
+```
+
+### SevenNet
+
+Website: https://github.com/MDIL-SNU/SevenNet
+
+```bash
+conda create -n MLIP_7net python=3.10
+conda activate MLIP_7net
+pip install sevenn
+```
+
+### MatterSim
+
+Website: https://github.com/microsoft/mattersim
+
+```bash
+conda create -n MLIP_mattersim python=3.9
+conda activate MLIP_mattersim
+pip install mattersim
+```
+
+### HIENet
+
+```bash
+conda create -n MLIP_HIENet python=3.9
+conda activate MLIP_HIENet
+
+pip install torch==2.1.2
+pip install torch-scatter torch-sparse torch-cluster torch-spline-conv -f https://data.pyg.org/whl/torch-2.1.2.html
+
+git clone https://github.com/divelab/AIRS.git
+cd AIRS/OpenMat/HIENet
+pip install .
+```
+
+**Troubleshooting**: If you encounter the error `OSError: /lib64/libstdc++.so.6: version 'GLIBCXX_3.4.29' not found`, run:
+
+```bash
+conda install -c conda-forge libstdcxx-ng
+```
+
+### EquiformerV2 and eSEN
+
+Website: https://huggingface.co/facebook/OMAT24/tree/main
+
+```bash
+conda create -n MLIP_fairchem python=3.9
+conda activate MLIP_fairchem
+pip install fairchem-core==1.10.0
+pip install torch_scatter torch_sparse torch_spline_conv torch_geometric
+```
+
+**Note**: For EquiformerV2 and eSEN MLIPs, download the trained model checkpoints from the official website: https://huggingface.co/facebook/OMAT24/tree/main. Specify the checkpoint path when using these models with the `--checkpoint_path` flag:
+
+```bash
+mpirun -np 10 python MLIP_optimize.py \
+    -d ./example/example_data.csv \
+    -m "eqV2_31M_omat" \
+    -o "opt_results" \
+    --checkpoint_path ./fairchem_checkpoints/eqV2_31M_omat.pt
+```
+
+### GCC Version Issue
+
+If your GCC version is too low, after activating the conda environment:
+
+```bash
+conda install -y -c conda-forge gcc=11.3.0
+conda install -y -c conda-forge gxx=11.3.0
+gcc --version
+g++ --version
+```
+
+
+## Citation
+
+If you use this toolkit in your research, please cite:
+
+```bibtex
+@misc{xiao2025accuratescreeningfunctionalmaterials,
+  title={Accurate Screening of Functional Materials with Machine-Learning Potential and Transfer-Learned Regressions: Heusler Alloy Benchmark}, 
+  author={Enda Xiao and Terumasa Tadano},
+  year={2025},
+  eprint={2508.20556},
+  archivePrefix={arXiv},
+  primaryClass={cond-mat.mtrl-sci},
+  url={https://arxiv.org/abs/2508.20556}
+}
+```
+
+Additionally, please cite the specific MLIP models you use in your work. Refer to the official documentation and publications for each model listed in the **Available MLIP Models** section.
 
