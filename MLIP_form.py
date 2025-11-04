@@ -249,7 +249,7 @@ def main():
     # Optional arguments
     parser.add_argument("--formula_column_compound", type=str, default="optimized_formula",
                        help="Column name containing chemical formulas in compound database")
-    parser.add_argument("--formula_column_terminal", type=str, default="optimized_formula",
+    parser.add_argument("--formula_column_terminal", type=str, default="composition",
                        help="Column name containing element symbols in terminal database")
     parser.add_argument("--energy_column", type=str, default="Energy (eV/atom)",
                        help="Column name containing ML energies in both databases")

@@ -229,11 +229,11 @@ To track which file the global minimum came from, the CSV file path is specified
 
 The **formation energy** of a compound is a thermodynamic quantity that measures the energy change when the compound is formed from its constituent elements in their standard reference states. It provides insight into the **stability** of a material — lower (more negative) formation energy generally indicates a more stable compound.
 
-$$ E_\text{form} = E$_{\text{compound}} - \sum_i n_i \mu_i $$
+$$ E_\text{form} = E_{\text{compound}} - \sum_i n_i \mu_i $$
 where:  
-- $E$_{\text{compound}}: energy of the compound   
+- $E_{\text{compound}}$: energy of the compound   
 - $n_i$: number of atoms of element $i$ in the compound  
-- $\mu_i$: chemical potential (typically the total energy per atom) of element $i$.
+- $\mu_i$: chemical potential (typically the energy per atom) of element $i$.
 
 #### Script Usage
 
@@ -262,17 +262,13 @@ python MLIP_form.py \
 
 #### Definition
 
-The **distance to the convex hull** measures how far a compound's formation energy lies above the thermodynamic stability limit defined by all possible competing phases in a chemical system. It quantifies how unstable a compound is relative to the most stable combinations of phases at the same composition.
+The **distance to the convex hull** measures how far a compound's formation energy lies above the thermodynamic stability limit defined by all possible competing phases in a chemical system. It quantifies how unstable a compound is relative to the most stable combinations of phases at the same composition. 
 
 $$ E_\text{hull} = E_\text{form} - E_\text{form}^\text{(hull)} $$
 
 where:  
 - $E_\text{form}$: formation energy of the compound,  
 - $E_\text{form}^\text{(hull)}$: formation energy of the thermodynamically stable phase (or mixture of phases) at that composition, i.e., the energy on the convex hull.
-
-**Physical Meaning:**  
-- **$E_\text{hull} = 0$** → the compound lies *on* the convex hull and is **thermodynamically stable**.  
-- **$E_\text{hull} > 0$** → the compound is **metastable or unstable**, with a tendency to decompose into the phases that form the convex hull at the same composition.
 
 #### Script Usage
 

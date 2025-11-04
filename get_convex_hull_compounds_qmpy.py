@@ -15,6 +15,7 @@ Example usage:
 import argparse
 import os
 import re
+import time
 from typing import Dict, List, Optional, Tuple, Any
 
 import pandas as pd
@@ -111,6 +112,8 @@ def extract_unique_chemical_systems(dataframe: pd.DataFrame,
     """
     Extract unique chemical systems (element combinations) from compound database.
     
+    This function should only be called on rank 0, then broadcast to other ranks.
+    
     Args:
         dataframe: DataFrame containing compound compositions
         composition_column: Column name containing chemical formulas
@@ -162,6 +165,52 @@ def extract_unique_chemical_systems(dataframe: pd.DataFrame,
     
     return unique_systems
 
+
+def query_qmpy_db_with_retry(elements: List[str], max_retries: int = 3,
+                             initial_delay: float = 1.0) -> List[Any]:
+    """
+    Query local QMPY database with exponential backoff retry logic.
+    
+    Args:
+        elements: List of element symbols for the chemical system
+        max_retries: Maximum number of retry attempts
+        initial_delay: Initial delay in seconds before first retry
+        
+    Returns:
+        List of stable structures from QMPY PhaseSpace
+        
+    Raises:
+        Exception: If all retries fail
+    """
+    elements_str = '-'.join(elements)
+    last_exception = None
+    
+    for attempt in range(max_retries):
+        try:
+            # Query QMPY database for stable phases in this chemical system
+            phase_space = PhaseSpace(elements)
+            return list(phase_space.stable)
+                
+        except Exception as e:
+            last_exception = e
+            if attempt < max_retries - 1:
+                delay = initial_delay * (2 ** attempt)
+                log_warning(
+                    f"Rank {rank}: Database query failed for {elements_str} (attempt {attempt + 1}/{max_retries}). "
+                    f"Retrying in {delay:.1f}s... Error: {e}",
+                    current_rank=rank
+                )
+                time.sleep(delay)
+            else:
+                log_warning(
+                    f"Rank {rank}: All {max_retries} attempts failed for {elements_str}. Error: {e}",
+                    current_rank=rank
+                )
+    
+    # If all retries failed, raise the last exception
+    raise last_exception
+
+
 def extract_competing_phases(chemical_systems: List[List[str]]) -> Optional[pd.DataFrame]:
     """
     Extract competing phases from QMPY database for given chemical systems.
@@ -193,10 +242,9 @@ def extract_competing_phases(chemical_systems: List[List[str]]) -> Optional[pd.D
     for elements in tqdm(local_systems, disable=(rank != 0), 
                         desc=f"Rank {rank} extracting phases"):
         try:
-            # Query QMPY database for stable phases in this chemical system
-            phase_space = PhaseSpace(elements)
+            stable_structures = query_qmpy_db_with_retry(elements)
             
-            for structure in phase_space.stable:
+            for structure in stable_structures:
                 phase_data = extract_phase_data(structure)
                 if phase_data:
                     local_results.append(phase_data)
@@ -211,15 +259,20 @@ def extract_competing_phases(chemical_systems: List[List[str]]) -> Optional[pd.D
         log_warning(f"Rank {rank} failed to process {len(failed_systems)} systems", 
                    current_rank=rank)
     
+    # Synchronize all ranks before gathering
+    comm.barrier()
+    log_info(f"Rank {rank} reached synchronization barrier", current_rank=rank)
+    
     # Gather results from all MPI ranks
     all_results = comm.gather(local_results, root=0)
     all_failures = comm.gather(failed_systems, root=0)
     
     # Combine and process results on rank 0
     if rank == 0:
-        return combine_phase_results(all_results, all_failures)
+        return combine_phase_results(all_results, all_failures, chemical_systems)
     else:
         return None
+
 
 
 def extract_phase_data(structure) -> Optional[Dict[str, Any]]:
@@ -257,13 +310,15 @@ def extract_phase_data(structure) -> Optional[Dict[str, Any]]:
 
 
 def combine_phase_results(all_results: List[List[Dict]], 
-                         all_failures: List[List[Tuple]]) -> pd.DataFrame:
+                         all_failures: List[List[Tuple]],
+                         chemical_systems: List[List[str]]) -> pd.DataFrame:
     """
     Combine phase results from all MPI ranks and create final DataFrame.
     
     Args:
         all_results: List of result lists from each MPI rank
         all_failures: List of failure lists from each MPI rank
+        chemical_systems: Original list of chemical systems to verify completeness
         
     Returns:
         Combined DataFrame with competing phase data
@@ -274,8 +329,20 @@ def combine_phase_results(all_results: List[List[Dict]],
     
     log_info(f"Combined {len(flat_results)} phases from all ranks")
     
+    # Verify completeness
+    failed_systems_set = {tuple(sorted(system)) for system, _ in flat_failures}
+    total_systems = len(chemical_systems)
+    failed_count = len(failed_systems_set)
+    success_count = total_systems - failed_count
+    
+    log_info(f"Successfully processed {success_count}/{total_systems} chemical systems")
+    
     if flat_failures:
-        log_warning(f"Total of {len(flat_failures)} chemical systems failed processing")
+        log_warning(f"Failed to process {failed_count} chemical systems:")
+        for system, error in flat_failures[:10]:  # Show first 10 failures
+            log_warning(f"  {'-'.join(system)}: {error}")
+        if len(flat_failures) > 10:
+            log_warning(f"  ... and {len(flat_failures) - 10} more")
     
     # Create DataFrame
     if not flat_results:
@@ -368,6 +435,8 @@ Examples:
                        help="Path to database configuration file (JSON format)")
     parser.add_argument("--skip_duplicates", action="store_true",
                        help="Skip duplicate removal step")
+    parser.add_argument("--failed_systems_output", type=str, default=None,
+                       help="Output CSV file path for failed chemical systems (optional)")
     
     args = parser.parse_args()
     
@@ -375,28 +444,35 @@ Examples:
         # Print MPI configuration
         print_mpi_info()
         
-        # Setup database environment
+        # Setup database environment (only on rank 0, but all ranks need it)
         log_info("Setting up database environment...", current_rank=rank)
         setup_database_environment()
         
-        # Load and validate input database
-        log_info(f"Loading compound database from {args.database_candidate}...", current_rank=rank)
+        # Load input database only on rank 0, then broadcast
+        if rank == 0:
+            log_info(f"Loading compound database from {args.database_candidate}...")
+            
+            if not os.path.exists(args.database_candidate):
+                raise FileNotFoundError(f"Database file not found: {args.database_candidate}")
+            
+            compound_db = pd.read_csv(args.database_candidate, index_col=0)
+            log_info(f"Loaded {len(compound_db)} compounds")
+            
+            # Validate input data
+            validate_input_database(compound_db, [args.composition_column])
+            
+            # Extract unique chemical systems
+            log_info("Extracting unique chemical systems...")
+            chemical_systems = extract_unique_chemical_systems(
+                compound_db, 
+                composition_column=args.composition_column
+            )
+        else:
+            chemical_systems = None
         
-        if not os.path.exists(args.database_candidate):
-            raise FileNotFoundError(f"Database file not found: {args.database_candidate}")
-        
-        compound_db = pd.read_csv(args.database_candidate, index_col=0)
-        log_info(f"Loaded {len(compound_db)} compounds", current_rank=rank)
-        
-        # Validate input data
-        validate_input_database(compound_db, [args.composition_column])
-        
-        # Extract unique chemical systems
-        log_info("Extracting unique chemical systems...", current_rank=rank)
-        chemical_systems = extract_unique_chemical_systems(
-            compound_db, 
-            composition_column=args.composition_column
-        )
+        # Broadcast chemical systems from rank 0 to all other ranks
+        chemical_systems = comm.bcast(chemical_systems, root=0)
+        log_info(f"Rank {rank} received {len(chemical_systems)} chemical systems", current_rank=rank)
         
         # Extract competing phases using MPI
         log_info("Extracting competing phases from QMPY database...", current_rank=rank)
@@ -429,6 +505,9 @@ Examples:
         
     except Exception as e:
         log_warning(f"Error: {str(e)}", current_rank=rank)
+        import traceback
+        if rank == 0:
+            traceback.print_exc()
         return 1
 
 
