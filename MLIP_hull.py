@@ -9,10 +9,7 @@ while positive distances indicate metastable compounds.
 The script uses MPI for parallel processing to efficiently handle large datasets.
 
 Example usage:
-    mpirun -n 4 python ML_hull_evaluate.py -d candidates.csv -c convex_phases.csv -o results.csv
-
-Author: [Author Name]
-Date: [Date]
+    mpirun -n 4 python MLIP_hull.py -d candidates.csv -c convex_phases.csv -o results.csv
 """
 
 import argparse
@@ -51,25 +48,6 @@ def log_warning(message: str, rank: int = 0, current_rank: int = 0) -> None:
     """Log warning message only from specified rank."""
     if current_rank == rank:
         print(f"[WARNING] {message}")
-
-
-def print_usage_examples() -> None:
-    """Print usage examples for the script."""
-    examples = """
-Usage Examples:
-    
-    Basic usage with MPI:
-        mpirun -n 4 python ML_hull_evaluate.py -d candidates.csv -c convex_phases.csv -o results.csv
-    
-    Single process:
-        python ML_hull_evaluate.py -d candidates.csv -c convex_phases.csv -o results.csv
-    
-    Custom column names:
-        mpirun -n 8 python ML_hull_evaluate.py -d data.csv -c phases.csv -o hull_results.csv \\
-            --formula_column_candidate "formula" \\
-            --formE_column_candidate "formation_energy"
-    """
-    print(examples)
 
 
 def print_mpi_info(rank: int, size: int) -> None:
@@ -415,12 +393,27 @@ def main() -> int:
     Returns:
         Exit code (0 for success, 1 for error)
     """
+    examples = """
+Examples:
+    Basic usage with MPI:
+        mpirun -n 4 python MLIP_hull.py -d candidates.csv -c convex_phases.csv -o results.csv
+    
+    Single process:
+        python MLIP_hull.py -d candidates.csv -c convex_phases.csv -o results.csv
+    
+    Custom column names:
+        mpirun -n 8 python MLIP_hull.py -d data.csv -c phases.csv -o hull_results.csv \\
+            --formula_column_candidate "formula" \\
+            --formE_column_candidate "formation_energy"
+    """
+    
     parser = argparse.ArgumentParser(
         description="Calculate convex hull distances for compounds using ML-predicted "
                    "formation energies. Hull distance indicates thermodynamic stability - "
                    "compounds on the hull (distance = 0) are stable, while positive "
                    "distances indicate metastable compounds.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        epilog=examples,
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
     # Required arguments
@@ -432,26 +425,18 @@ def main() -> int:
                        help="Output CSV file path for results with hull distances")
     
     # Optional arguments for column names
-    parser.add_argument("--formula_column_candidate", type=str, default="composition",
+    parser.add_argument("--formula_column_candidate", type=str, default="optimized_formula",
                        help="Column name containing formulas in candidate database")
-    parser.add_argument("--formula_column_convex", type=str, default="name",
+    parser.add_argument("--formula_column_convex", type=str, default="optimized_formula",
                        help="Column name containing formulas in convex phases database")
-    parser.add_argument("--formE_column_candidate", type=str, default="ML_formE",
+    parser.add_argument("--formE_column_candidate", type=str, default="Formation Energy (eV/atom)",
                        help="Column name containing formation energies in candidate database")
-    parser.add_argument("--formE_column_convex", type=str, default="ML_formE",
+    parser.add_argument("--formE_column_convex", type=str, default="Formation Energy (eV/atom)",
                        help="Column name containing formation energies in convex phases database")
-    parser.add_argument("--out_column", type=str, default="ML_hull",
+    parser.add_argument("--out_column", type=str, default="Hull Distance (eV/atom)",
                        help="Column name for storing calculated hull distances")
     
-    # Additional options
-    parser.add_argument("--examples", action="store_true",
-                       help="Show usage examples and exit")
-    
     args = parser.parse_args()
-    
-    if args.examples:
-        print_usage_examples()
-        return 0
     
     try:
         # Print MPI configuration

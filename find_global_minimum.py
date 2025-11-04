@@ -1,5 +1,3 @@
-
-
 """
 Global Minimum Finder for CSV Databases
 
@@ -12,17 +10,14 @@ came from. By default, the source is the file path, but you can specify custom l
 
 Example usage:
     # Using file pattern (source will be file paths)
-    python find_global_minimun.py -f ./results/ -p "formE_*_*.csv" -o global_min.csv
+    python find_global_minimum.py -f ./results/ -p "formE_*_*.csv" -o global_min.csv
 
     # Using explicit file list with custom labels
-    python find_global_minimun.py -i file1.csv file2.csv file3.csv \
+    python find_global_minimum.py -i file1.csv file2.csv file3.csv \
         --labels "DFT" "ML_model1" "ML_model2" -o global_min.csv
     
     # Specify custom energy column
-    python find_global_minimun.py -f ./data/ -p "*.csv" -o output.csv --energy-column "ML_formE"
-
-Author: [Author Name]
-Date: October 31, 2025
+    python find_global_minimum.py -f ./data/ -p "*.csv" -o output.csv --energy-column "ML_formE"
 """
 
 import argparse

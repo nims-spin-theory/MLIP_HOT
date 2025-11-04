@@ -15,20 +15,17 @@ All energies are in eV per atom units.
 
 Example usage:
     Basic usage:
-        python ML_formE.py -i compounds.csv -t terminal.csv -o results.csv
+        python MLIP_form.py -i compounds.csv -t terminal.csv -o results.csv
     
     Custom column names:
-        python ML_formE.py -i compounds.csv -t terminal.csv -o results.csv \\
-            --formula_column_compound "formula" \\
-            --energy_column "energy_per_atom" \\
+        python MLIP_form.py -i compounds.csv -t terminal.csv -o results.csv \
+            --formula_column_compound "formula" \
+            --energy_column "energy_per_atom" \
             --out_column "formation_energy"
     
     With specific terminal element column:
-        python ML_formE.py -i compounds.csv -t elements.csv -o out.csv \\
+        python MLIP_form.py -i compounds.csv -t elements.csv -o out.csv \
             --formula_column_terminal "symbol"
-
-Author: [Author Name]
-Date: [Date]
 """
 
 import argparse

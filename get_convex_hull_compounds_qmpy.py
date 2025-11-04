@@ -9,10 +9,7 @@ The script uses MPI for parallel processing to efficiently handle large datasets
 and multiple chemical systems.
 
 Example usage:
-    mpirun -n 4 python ML_hull_prepare.py -d compounds.csv -o convex_phases.csv
-
-Author: [Author Name]
-Date: [Date]
+    mpirun -n 4 python get_convex_hull_compounds_qmpy.py -d compounds.csv -o convex_phases.csv
 """
 
 import argparse
@@ -94,29 +91,6 @@ def log_warning(message: str, rank: int = 0, current_rank: int = 0) -> None:
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
-
-
-def print_usage_examples() -> None:
-    """Print usage examples for the script."""
-    examples = """
-Usage Examples:
-    
-    Basic usage with MPI:
-        mpirun -n 4 python ML_hull_prepare.py -d compounds.csv -o competing_phases.csv
-    
-    Single process:
-        python ML_hull_prepare.py -d compounds.csv -o competing_phases.csv
-    
-    Custom composition column:
-        mpirun -n 8 python ML_hull_prepare.py -d data.csv -o phases.csv \\
-            --composition_column "formula"
-    
-    With database configuration:
-        mpirun -n 4 python ML_hull_prepare.py -d compounds.csv -o phases.csv \\
-            --db_config db_config.json
-    """
-    if rank == 0:
-        print(examples)
 
 
 def print_mpi_info() -> None:
@@ -356,11 +330,29 @@ def main() -> int:
     Returns:
         Exit code (0 for success, 1 for error)
     """
+    examples = """
+Examples:
+    Basic usage with MPI:
+        mpirun -n 4 python get_convex_hull_compounds_qmpy.py -d compounds.csv -o competing_phases.csv
+    
+    Single process:
+        python get_convex_hull_compounds_qmpy.py -d compounds.csv -o competing_phases.csv
+    
+    Custom composition column:
+        mpirun -n 8 python get_convex_hull_compounds_qmpy.py -d data.csv -o phases.csv \\
+            --composition_column "formula"
+    
+    With database configuration:
+        mpirun -n 4 python get_convex_hull_compounds_qmpy.py -d compounds.csv -o phases.csv \\
+            --db_config db_config.json
+    """
+    
     parser = argparse.ArgumentParser(
         description="Extract competing phases from QMPY database for convex hull analysis. "
                    "Processes compounds database to identify unique chemical systems and "
                    "extracts stable phases for each system using MPI parallelization.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        epilog=examples,
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
     # Required arguments
@@ -376,14 +368,8 @@ def main() -> int:
                        help="Path to database configuration file (JSON format)")
     parser.add_argument("--skip_duplicates", action="store_true",
                        help="Skip duplicate removal step")
-    parser.add_argument("--examples", action="store_true",
-                       help="Show usage examples and exit")
     
     args = parser.parse_args()
-    
-    if args.examples:
-        print_usage_examples()
-        return 0
     
     try:
         # Print MPI configuration

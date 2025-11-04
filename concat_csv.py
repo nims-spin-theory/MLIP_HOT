@@ -7,9 +7,6 @@ The script supports glob patterns for flexible file matching and preserves the i
 Example usage:
     python concat_csv.py -f ./data/ -p "db*convex*.csv" -o combined_output.csv
     python concat_csv.py -f ./data/ -p "*.csv" -o output.csv --reset-index
-
-Author: [Author Name]
-Date: October 31, 2025
 """
 
 import argparse

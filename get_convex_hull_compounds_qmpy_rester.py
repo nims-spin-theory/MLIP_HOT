@@ -10,12 +10,11 @@ https://github.com/mohanliu/qmpy_rester
 
 Thus, the installation of QMPY to local device is not required.
 
-
 The script uses MPI for parallel processing to efficiently handle large datasets
 and multiple chemical systems.
 
 Example usage:
-    mpirun -n 4 python ML_hull_prepare_qmpy_rester.py -d compounds.csv -o convex_phases.csv
+    mpirun -n 4 python get_convex_hull_compounds_qmpy_rester.py -d compounds.csv -o convex_phases.csv
 """
 
 import argparse
@@ -45,25 +44,6 @@ def log_warning(message: str, rank: int = 0, current_rank: int = 0) -> None:
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
-
-
-def print_usage_examples() -> None:
-    """Print usage examples for the script."""
-    examples = """
-Usage Examples:
-    
-    Basic usage with MPI:
-        mpirun -n 4 python ML_hull_prepare_qmpy_rester.py -d compounds.csv -o competing_phases.csv
-    
-    Single process:
-        python ML_hull_prepare_qmpy_rester.py -d compounds.csv -o competing_phases.csv
-    
-    Custom composition column:
-        mpirun -n 8 python ML_hull_prepare_qmpy_rester.py -d data.csv -o phases.csv \\
-            --composition_column "formula"
-    """
-    if rank == 0:
-        print(examples)
 
 
 def print_mpi_info() -> None:
@@ -379,11 +359,25 @@ def main() -> int:
     Returns:
         Exit code (0 for success, 1 for error)
     """
+    examples = """
+Examples:
+    Basic usage with MPI:
+        mpirun -n 4 python get_convex_hull_compounds_qmpy_rester.py -d compounds.csv -o competing_phases.csv
+    
+    Single process:
+        python get_convex_hull_compounds_qmpy_rester.py -d compounds.csv -o competing_phases.csv
+    
+    Custom composition column:
+        mpirun -n 8 python get_convex_hull_compounds_qmpy_rester.py -d data.csv -o phases.csv \\
+            --composition_column "formula"
+    """
+    
     parser = argparse.ArgumentParser(
         description="Extract competing phases from QMPY database for convex hull analysis. "
                    "Processes compounds database to identify unique chemical phase space and "
                    "extracts stable phases for each system using MPI parallelization.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        epilog=examples,
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
     # Required arguments
@@ -395,14 +389,8 @@ def main() -> int:
     # Optional arguments
     parser.add_argument("--composition_column", type=str, default="composition",
                        help="Column name containing chemical formulas")
-    parser.add_argument("--examples", action="store_true",
-                       help="Show usage examples and exit")
     
     args = parser.parse_args()
-    
-    if args.examples:
-        print_usage_examples()
-        return 0
     
     try:
         # Print MPI configuration

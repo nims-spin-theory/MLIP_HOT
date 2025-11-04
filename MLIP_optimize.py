@@ -14,10 +14,7 @@ Features:
 - Strain application for finding global minima
 
 Usage:
-    mpirun -n <num_processes> python ML_optimization.py -d database.csv -m model_name -o output_dir -s size -r rank
-
-Author: [Author Name]
-Date: 2025
+    mpirun -n <num_processes> python MLIP_optimize.py -d database.csv -m model_name -o output_dir -s size -r rank
 """
 
 import argparse
@@ -31,14 +28,12 @@ import pandas as pd
 import spglib
 from mpi4py import MPI
 
-# ASE imports
 from ase import Atoms
 from ase.constraints import FixSymmetry
 from ase.filters import FrechetCellFilter
 from ase.optimize import FIRE
 from ase.calculators.calculator import Calculator
 
-# PyMatGen imports
 from pymatgen.core import Lattice, Structure
 from pymatgen.core.operations import SymmOp
 from pymatgen.io.ase import AseAtomsAdaptor
@@ -50,14 +45,9 @@ warnings.filterwarnings('ignore')
 warnings.filterwarnings('ignore', category=UserWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', category=DeprecationWarning)
-
-# Suppress PyMatGen warnings
 warnings.filterwarnings('ignore', module='pymatgen')
-
-# Suppress ASE warnings
 warnings.filterwarnings('ignore', module='ase')
 
-# Suppress NumPy warnings
 np.seterr(all='ignore')
 
 # Constants

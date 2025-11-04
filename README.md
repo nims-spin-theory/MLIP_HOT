@@ -2,7 +2,7 @@
 
 A comprehensive toolkit for Machine Learning Interatomic Potential (MLIP) based
 calculations, including structural optimization, formation energy evaluation and
-convex hull analysis. This toolkit focuses on building a high-throughput pipline
+convex hull analysis. This toolkit focuses on building a high-throughput pipeline
 for computational material discovery.
 
 
@@ -20,7 +20,7 @@ This repository contains Python scripts and examples for:
 - **Formation Energy Calculations**: Compute formation energies using MLIP-derived reference energies
 - **Convex Hull Distance Analysis**: Evaluate thermodynamic stability through hull distance calculations with MLIP reference energies
 - **High-Quality Reference Structures**: Utilize DFT-optimized structures from OQMD and Materials Project databases as initial geometries for reference energy calculations
-- **Symmetrize** The structure can be converted to primitive cell before optimization.
+- **Symmetrize**: The structure can be converted to primitive cell before optimization
 
 
 ## Available MLIP Models
@@ -94,12 +94,9 @@ flowchart LR
 
 ## Usage Examples
 
-An example input csv file containing 100 compounds is included in `example`. It
-can be used to execute the examples below. We first give the typical usages of
-each script. At the end, we give a comprehensive example of a common job
-workflow: determine the structure and energy of the ground states, and calculate
-formation energy and distance to convex hull to evaluate thermodynamic stability
-of the ground state.
+An example input CSV file containing 100 compounds is included in the `example` directory. The following sections demonstrate typical usage for each script, concluding with a comprehensive workflow example that shows how to: (1) determine ground state structures and energies, (2) calculate formation energies, and (3) evaluate thermodynamic stability via convex hull distance.
+
+**Note:** The examples below show basic usage. Each script supports additional flags for greater flexibility. Run `python script_name.py -h` to view all available options and usage examples.
 
 ### 1. Structure Optimization
 
@@ -117,16 +114,16 @@ is shown when the code is executed. Please check these info for more details.
 ```bash
 # Using mattersim model
 mpirun -np 4 python MLIP_optimize.py \
-    -d ./example_data.csv \    # -d: Input CSV file containing structures
-    -m "mattersim" \               # -m: MLIP model
-    -o "result_test1"            # -o: Output name
-```
+    -d ./example_data.csv \
+    -m "mattersim" \
+    -o "result_test1"
 
-**Flags:**
-- `-d, --data`: Path to input CSV file containing crystal structures
-- `-m, --model`: MLIP model name (see Available MLIP Models section)
-- `-o, --output`: Output directory for optimization results
-- `mpirun -np N`: Run with N parallel processes using MPI
+# Flags:
+#   -d, --data: Path to input CSV file containing crystal structures
+#   -m, --model: MLIP model name (see Available MLIP Models section)
+#   -o, --output: Output directory for optimization results
+#   mpirun -np N: Run with N parallel processes using MPI
+```
 
 #### Optimization with Strain Perturbations
 
@@ -136,80 +133,86 @@ structures are stored in columns `strained_cell`, `strained_positions`, and
 `strained_numbers`,
 
 ```bash
-# scalar input for isotropic strain
-mpirun -np 10 python MLIP_optimize.py \
-    -d ./example_data.csv \    # -d: Input data file
-    -m "mattersim" \               # -m: Model name
-    -o "result_test1" \          # -o: Output name
-    --strain 0.1                # --strain: Strain magnitude (0.1 = 10%)
-
-# 3 by 3 matrix for anisotropic strain
+# Scalar input for isotropic strain
 mpirun -np 10 python MLIP_optimize.py \
     -d ./example_data.csv \
     -m "mattersim" \
     -o "result_test1" \
-    --strain "[[0.1, 0.1, 0.0], [0.1, -0.1, 0.0], [0.0, -0.1, 0.0]]"  
-    # Custom strain tensor
+    --strain 0.1
+
+# 3x3 matrix for anisotropic strain
+mpirun -np 10 python MLIP_optimize.py \
+    -d ./example_data.csv \
+    -m "mattersim" \
+    -o "result_test1" \
+    --strain "[[0.1, 0.1, 0.0], [0.1, -0.1, 0.0], [0.0, -0.1, 0.0]]"
+
+# Flags:
+#   --strain: Strain magnitude (scalar for isotropic, 3x3 matrix for anisotropic)
 ```
 
 #### Submit dataset chunks separately across multiple computing resources
 
 Within high-throughput research, the number of screened compounds is generally
-very large. Thus, it is more efficient to divide the database to several chunks
-and run optimization of each chunks separately on multiple computation nodes.
-For example, we can divide the database to 20 chucks and run each chuck on one
+very large. Thus, it is more efficient to divide the database into several chunks
+and run optimization of each chunk separately on multiple computation nodes.
+For example, we can divide the database into 20 chunks and run each chunk on one
 computer and concatenate all results at the end. This is specified by the flags
-`-s` and `-r`. The `-s` specifies the number of chunks to generate. The `-r`
-flag specifies the chuck to run in the current calculation. After all chunks
-calculated, all results can be concatenated by the script `concat_csv.py` .
+`-s` and `-r`. The `-s` flag specifies the number of chunks to generate. The `-r`
+flag specifies the chunk to run in the current calculation. After all chunks are
+calculated, all results can be concatenated by the script `concat_csv.py`.
 
 ```bash
-# Run optimization by separating database to 3 chunks
+# Run optimization by separating database into 3 chunks
 mpirun -np 10 python MLIP_optimize.py \
     -d ./example_data.csv \
     -m "mattersim" \
     -o "result_test1" \
-    -s 3 \                  
-    -r 0    # 0 <= r <= 2
+    -s 3 \
+    -r 0
+
+# Flags:
+#   -s: Number of chunks to split the database into
+#   -r: Chunk index to process (0 <= r < s)
 
 # Concatenate results from multiple chunks
 python concat_csv.py \
-    -f "./result_test1" \       # -f: Folder containing result files
-    -p "example_data_*.csv" \   # -p: File pattern to match
-    -o example_data_result_test1.csv  # -o: Output concatenated file
-```
-The script `concat_csv.py` print the name of files for concatenation and 
-the chunks that are not completed.
+    -f "./result_test1" \
+    -p "example_data_*.csv" \
+    -o example_data_result_test1.csv
 
-**Flags:**
-- `-f`: Folder path containing CSV files to concatenate
-- `-p, --pattern`: Glob pattern to match specific files (e.g., "*.csv", "data_*.csv")
-- `-o, --output`: Output `csv` filename for concatenated results
+# Flags:
+#   -f: Folder path containing CSV files to concatenate
+#   -p, --pattern: Glob pattern to match specific files (e.g., "*.csv", "data_*.csv")
+#   -o, --output: Output csv filename for concatenated results
+```
+The script `concat_csv.py` prints the names of files for concatenation and 
+the chunks that are not completed.
 
 #### Finding Global Minimum from various initial structures
 
 Initialized from different initial structures, the optimization can end in
-different structures (local minima) and energies. This is same to DFT-based
+different structures (local minima) and energies. This is the same as the DFT-based
 optimization approach. To determine the real ground state, we need to compare
 the energies of local minima to find the global minimum as the ground state.
-This is done by script `find_global_minimum.py`. 
+This is done by the script `find_global_minimum.py`. 
 
 
 ```bash
 # Find global minimum energies across multiple result files
 python find_global_minimum.py \
-    -i example_data_result_test1.csv \    # -i: Input files (space-separated)
+    -i example_data_result_test1.csv \
        example_data_result_test2.csv \
-    -o example_data_result_global_min.csv # -o: Output file
+    -o example_data_result_global_min.csv
+
+# Flags:
+#   -i, --input: Multiple input CSV files to compare (space-separated list)
+#   -o, --output: Output file containing structures with globally minimum energies
+#   --labels: Optional custom labels for each input file (order matches input files)
 ```
 
-**Flags:**
-
-- `-i, --input`: Multiple input CSV files to compare (space-separated list)
-- `-o, --output`: Output file containing structures with globally minimum energies
-
-To track which file each minimum came from, the the csv file path os specified
-for each compound by default. It can also be specified by flag `--labels`, the order of labels is same as the order of input files.
+To track which file each minimum came from, the CSV file path is specified
+for each compound by default. It can also be specified by the flag `--labels`; the order of labels is the same as the order of input files.
 
 ### 2. Formation Energy Calculation
 
@@ -234,22 +237,21 @@ and the compounds optimization results to get formation energy using
 ```bash
 # Step 1: Optimize terminal elements
 mpirun -np 10 python MLIP_optimize.py \
-    -d ./terminal_elements.csv \    # CSV with pure element structures
+    -d ./terminal_elements.csv \
     -m "mattersim" \
     -o "terminal_elements_energy"
 
 # Step 2: Calculate formation energies
 python MLIP_form.py \
-    -i example_data_result_global_min.csv \        # -i: Input structures
-    -t terminal_elements_energy/terminal_elements.csv \  # -t: Terminal element reference
-    -o example_data_result_formation_energy.csv    # -o: Output with formation energies
+    -i example_data_result_global_min.csv \
+    -t terminal_elements_energy/terminal_elements.csv \
+    -o example_data_result_formation_energy.csv
+
+# Flags:
+#   -i, --input: Input CSV file with optimized structures and energies
+#   -t, --terminal: CSV file containing terminal element energies
+#   -o, --output: Output file with calculated formation energies (eV/atom)
 ```
-
-**Flags:**
-
-- `-i, --input`: Input CSV file with optimized structures and energies
-- `-t, --terminal`: CSV file containing terminal element energies
-- `-o, --output`: Output file with calculated formation energies (eV/atom)
 
 ### 3. Convex Hull Analysis
 #### Definition
@@ -283,50 +285,58 @@ interface for the OQMD database.
 ```bash
 # Get competing phases from OQMD database
 mpirun -np 10 python get_convex_hull_compounds_qmpy_rester.py \
-    -d example_data.csv \          
-    -o convex_hull_compounds.csv   
+    -d example_data.csv \
+    -o convex_hull_compounds.csv
 
 # Optimize convex hull phases and calculate formation energy
 mpirun -np 10 python MLIP_optimize.py \
-    -d ./convex_hull_compounds.csv \    # Competing phases data
+    -d ./convex_hull_compounds.csv \
     -m "mattersim" \
     -o "convex_hull_compounds_energy"
 
 python MLIP_form.py \
-    -i convex_hull_compounds_energy/convex_hull_compounds.csv \        
-    -t terminal_elements_energy/terminal_elements.csv \  
-    -o convex_hull_compounds_formation_energy.csv   
+    -i convex_hull_compounds_energy/convex_hull_compounds.csv \
+    -t terminal_elements_energy/terminal_elements.csv \
+    -o convex_hull_compounds_formation_energy.csv
 
 # Calculate distance to convex hull
-mpirun -n 4 python MLIP_hull.py \
-    -d example_data_result_formation_energy.csv.  # csv of screening compounds
-    -c convex_hull_compounds_formation_energy.csv # csv of convex hull compounds 
-    -o example_data_result_hull.csv               # output containing hull distance (eV/atom)
+mpirun -np 4 python MLIP_hull.py \
+    -d example_data_result_formation_energy.csv \
+    -c convex_hull_compounds_formation_energy.csv \
+    -o example_data_result_hull.csv
+
+# Flags:
+#   -d: CSV file of screening compounds with formation energies
+#   -c: CSV file of convex hull compounds with formation energies
+#   -o: Output file containing hull distance (eV/atom)
 ```
 
-#### Other script to get convex hull compounds information 
+#### Other scripts to get convex hull compounds information 
 
 ##### 1. Get competing phases from Materials Project 
-This requires API key, which can be obtained here https://materialsproject.org/api .
-``` bash
+This requires an API key, which can be obtained here: https://materialsproject.org/api
+```bash
 mpirun -np 10 python get_convex_hull_compounds_mp_rester.py \
-    -d example_data.csv \          
-    -o convex_hull_compounds.csv   
-    --api_key='your_api_key_here'   # --api_key: Materials Project API key
+    -d example_data.csv \
+    -o convex_hull_compounds.csv \
+    --api_key='your_api_key_here'
+
+# Flags:
+#   --api_key: Materials Project API key
 ```
 
 ##### 2. Using OQMD database on local machine
-The OQMD database can be installed to local machine, following the instruction
-here: https://static.oqmd.org/static/docs/getting_started.html .
+The OQMD database can be installed on a local machine, following the instructions
+here: https://static.oqmd.org/static/docs/getting_started.html
 
-``` bash
-mpirun -n 4 python get_convex_hull_compounds_qmpy.py \
+```bash
+mpirun -np 4 python get_convex_hull_compounds_qmpy.py \
     -d example_data.csv \
     -o convex_hull_compounds.csv
 ```
 
-To use this script, the user configuration of the local database need to be
-setup in the script:
+To use this script, the user configuration of the local database needs to be
+set up in the script:
 ```python
 DEFAULT_DB_CONFIG = {
     'name': 'oqmd__v1_6',
@@ -464,7 +474,10 @@ echo "Workflow complete! Final results in example_data_final_results.csv"
 **Key Points:**
 - Using multiple strain strategies increases the chance of finding true global minima
 - Dividing datasets into chunks (`-s` and `-r` flags) enables parallel processing across different compute nodes
-- The convex hull analysis requires both the target compounds, terminal elements, and competing phases to be optimized with the same MLIP model.
+- The convex hull analysis requires the target compounds, terminal elements, and competing phases to all be optimized with the same MLIP model
+- In practice, the convex hull compounds can be generated at first and run
+  optimization of screened compounds, elements, and convex hull compounds at the
+  same time. 
 
 
 
