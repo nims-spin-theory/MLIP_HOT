@@ -23,7 +23,8 @@ from typing import Dict, List, Optional, Tuple, Any
 import pandas as pd
 from ase.formula import Formula
 from mpi4py import MPI
-from pymatgen.ext.matproj import MPRester
+# from pymatgen.ext.matproj import MPRester
+from mp_api.client import MPRester
 from pymatgen.analysis.phase_diagram import PhaseDiagram
 from tqdm import tqdm
 
@@ -37,7 +38,6 @@ def log_warning(message: str, rank: int = 0, current_rank: int = 0) -> None:
     """Log warning message only from specified rank."""
     if current_rank == rank:
         print(f"[WARNING] {message}")
-
 
 # Initialize MPI
 comm = MPI.COMM_WORLD
@@ -59,7 +59,7 @@ def print_mpi_info() -> None:
 
 
 def extract_unique_chemical_systems(dataframe: pd.DataFrame, 
-                                   composition_column: str = 'composition') -> List[List[str]]:
+                                   composition_column: str = 'composition') -> Tuple[List[List[str]], Dict[str, pd.DataFrame]]:
     """
     Extract unique chemical systems (element combinations) from compound database.
     
@@ -70,7 +70,9 @@ def extract_unique_chemical_systems(dataframe: pd.DataFrame,
         composition_column: Column name containing chemical formulas
         
     Returns:
-        List of unique element combinations, each as a sorted list of element symbols
+        Tuple of (unique_systems, system_to_compounds):
+            - unique_systems: List of unique element combinations, each as a sorted list of element symbols
+            - system_to_compounds: Dictionary mapping chemical system string to DataFrame of compounds
         
     Raises:
         KeyError: If composition column is missing
@@ -86,6 +88,7 @@ def extract_unique_chemical_systems(dataframe: pd.DataFrame,
     
     element_systems = []
     failed_formulas = []
+    system_to_indices = {}  # Map from chemical system string to list of DataFrame indices
     
     for idx, row in dataframe.iterrows():
         try:
@@ -97,6 +100,12 @@ def extract_unique_chemical_systems(dataframe: pd.DataFrame,
             element_counts = Formula(composition).count()
             elements = sorted(list(element_counts.keys()))
             element_systems.append(elements)
+            
+            # Track which compounds belong to which chemical system
+            system_key = '-'.join(elements)
+            if system_key not in system_to_indices:
+                system_to_indices[system_key] = []
+            system_to_indices[system_key].append(idx)
             
         except Exception as e:
             failed_formulas.append((idx, composition))
@@ -112,13 +121,56 @@ def extract_unique_chemical_systems(dataframe: pd.DataFrame,
     unique_systems = list(set(tuple(system) for system in element_systems))
     unique_systems = [list(system) for system in unique_systems]
     
+    # Create mapping from chemical system to compounds DataFrame
+    system_to_compounds = {}
+    for system_key, indices in system_to_indices.items():
+        system_to_compounds[system_key] = dataframe.loc[indices].copy()
+    
     log_info(f"Found {len(unique_systems)} unique chemical systems", current_rank=rank)
     
-    return unique_systems
+    return unique_systems, system_to_compounds
+
+
+def extract_phase_data(doc: Any, entry: Any, phase_diagram: PhaseDiagram) -> Optional[Dict[str, Any]]:
+    """
+    Extract relevant data from a Materials Project document and entry.
+    
+    Args:
+        doc: Materials Project document containing structure and material_id
+        entry: ComputedStructureEntry from Materials Project
+        phase_diagram: PhaseDiagram object for calculating formation energy and hull distance
+        
+    Returns:
+        Dictionary containing extracted phase data, or None if extraction fails
+    """
+    try:
+        structure = doc.structure
+        mp_id = doc.material_id.string
+        run_type = entry.data['run_type']
+        E_Form = phase_diagram.get_form_energy_per_atom(entry)          
+        E_Hull = phase_diagram.get_e_above_hull(entry)
+        
+        phase_data = {
+            'material_id': mp_id,
+            'run_type': run_type,
+            'MP Formation energy (eV/atom)': E_Form,
+            'MP Hull distance (eV/atom)': E_Hull,
+            'composition': str(structure.composition.reduced_formula),
+            'cell': str(structure.lattice.matrix.tolist()),
+            'positions': str(structure.frac_coords.tolist()),
+            'numbers': str(list(structure.atomic_numbers)),
+            'natoms': structure.num_sites,
+        }
+        
+        return phase_data
+        
+    except Exception as e:
+        log_warning(f"Failed to extract data from entry {entry.data.get('material_id', 'unknown')}: {e}")
+        return None
 
 
 def query_mp_with_retry(elements: List[str], api_key: str, max_retries: int = 4,
-                        initial_delay: float = 5.0) -> List[Dict]:
+                        initial_delay: float = 3.0) -> Tuple[List[Any], List[Any], PhaseDiagram]:
     """
     Query Materials Project database with exponential backoff retry logic.
     
@@ -129,7 +181,10 @@ def query_mp_with_retry(elements: List[str], api_key: str, max_retries: int = 4,
         initial_delay: Initial delay in seconds before first retry
         
     Returns:
-        List of phase data dictionaries extracted from stable entries
+        Tuple of (docs, stable_entries, phase_diagram):
+            - docs: List of Materials Project documents with structure data
+            - stable_entries: List of stable ComputedStructureEntry objects
+            - phase_diagram: PhaseDiagram object for the chemical system
         
     Raises:
         Exception: If all retries fail
@@ -141,59 +196,37 @@ def query_mp_with_retry(elements: List[str], api_key: str, max_retries: int = 4,
         try:
             with MPRester(api_key) as mpr:
                 # 1) Fetch entries with formation energies for the given chemical system
-                mpr.session.timeout = 120
                 entries = mpr.get_entries_in_chemsys(elements)
 
                 # 2) Build phase diagram and get stable entries
                 phase_diagram = PhaseDiagram(entries)
                 stable_entries = phase_diagram.stable_entries
 
-                # 3) Extract relevant data from each stable entry
-                phase_data_list = []
-                for entry in stable_entries:
-                    mp_id = entry.data.get('material_id')
-                    
-                    E_Form = phase_diagram.get_form_energy_per_atom(entry)          
-                    E_Hull = phase_diagram.get_e_above_hull(entry)
-                    
-                    # 4) Fetch structure from MP
-                    if mp_id:
-                        try:
-                            structure = mpr.get_structure_by_material_id(mp_id)
-                            
-                            phase_data = {
-                                'composition': str(structure.composition.reduced_formula),
-                                'cell': str(structure.lattice.matrix.tolist()),
-                                'positions': str(structure.frac_coords.tolist()),
-                                'numbers': str(list(structure.atomic_numbers)),
-                                'material_id': mp_id,
-                                'MP Formation energy (eV/atom)': E_Form,
-                                'MP Hull distance (eV/atom)': E_Hull,
-                                'natoms': structure.num_sites,
-                                'spacegroup': structure.get_space_group_info()[0]
-                            }
-                            
-                            phase_data_list.append(phase_data)
-                            
-                        except Exception as struct_error:
-                            log_warning(f"Rank {rank}: Failed to fetch structure for {mp_id}: {struct_error}", 
-                                      current_rank=rank, rank=rank)
-                
-                return phase_data_list
+                # 3) Get material IDs for structure fetching
+                mp_id_list = [entry.data.get('material_id') for entry in stable_entries]
+
+            with MPRester(api_key) as mpr:
+                # 4) Fetch representative structures from MP
+                docs = mpr.materials.search(
+                        material_ids=mp_id_list,
+                        fields=["material_id", "structure",],
+                    )
+
+            return docs, stable_entries, phase_diagram
                 
         except Exception as e:
             last_exception = e
             if attempt < max_retries :
                 delay = initial_delay * (2 ** attempt)
                 log_warning(
-                    f"Rank {rank}: Query failed for {elements_str} (attempt {attempt + 1}/{max_retries}). "
-                    f"Retrying in {delay:.1f}s... Error: {e}",
+                    f"Rank {rank}: Query failed for {elements_str} (attempt {attempt + 1}/{max_retries}). Error: {e}. "
+                    f"Retrying in {delay:.1f}s...",
                     current_rank=rank, rank=rank
                 )
                 time.sleep(delay)
             else:
                 log_warning(
-                    f"Rank {rank}: All {max_retries} attempts failed for {elements_str}. Error: {e}",
+                    f"Rank {rank}: All {max_retries} attempts failed for {elements_str}.",
                     current_rank=rank, rank=rank
                 )
     
@@ -201,7 +234,8 @@ def query_mp_with_retry(elements: List[str], api_key: str, max_retries: int = 4,
     raise last_exception
 
 
-def extract_competing_phases(chemical_systems: List[List[str]], api_key: str) -> Optional[pd.DataFrame]:
+def extract_competing_phases(chemical_systems: List[List[str]], api_key: str, 
+                            system_to_compounds: Dict[str, pd.DataFrame] = None) -> Optional[Tuple[pd.DataFrame, pd.DataFrame]]:
     """
     Extract competing phases from Materials Project database for given chemical systems.
     
@@ -210,9 +244,12 @@ def extract_competing_phases(chemical_systems: List[List[str]], api_key: str) ->
     Args:
         chemical_systems: List of chemical systems, each as a list of element symbols
         api_key: Materials Project API key
+        system_to_compounds: Dictionary mapping chemical system string to DataFrame of compounds
         
     Returns:
-        DataFrame containing competing phase data (only on rank 0), None on other ranks
+        Tuple of (phases_df, failed_compounds_df) on rank 0, None on other ranks:
+            - phases_df: DataFrame containing competing phase data
+            - failed_compounds_df: DataFrame containing failed compounds (original input format)
         
     Raises:
         Exception: If database connection or phase extraction fails
@@ -225,7 +262,7 @@ def extract_competing_phases(chemical_systems: List[List[str]], api_key: str) ->
     local_systems = [system for i, system in enumerate(chemical_systems) if i % size == rank]
     
     log_info(f"Rank {rank} processing {len(local_systems)} chemical systems", 
-             current_rank=rank)
+             current_rank=rank, rank=rank)
     
     local_results = []
     failed_systems = []
@@ -234,13 +271,24 @@ def extract_competing_phases(chemical_systems: List[List[str]], api_key: str) ->
     for elements in tqdm(local_systems, disable=(rank != 0), 
                         desc=f"Rank {rank} extracting phases"):
         try:
-            phase_data_list = query_mp_with_retry(elements, api_key)
-            local_results.extend(phase_data_list)
-
+            docs, stable_entries, phase_diagram = query_mp_with_retry(elements, api_key)
+            
+            # Create mapping from material_id to doc and entry for efficient lookup
+            doc_dict = {doc.material_id.string: doc for doc in docs}
+            entry_dict = {entry.data.get('material_id'): entry for entry in stable_entries}
+            
+            # Extract phase data for each stable entry
+            for entry in stable_entries:
+                mp_id = entry.data.get('material_id')
+                if mp_id in doc_dict:
+                    phase_data = extract_phase_data(doc_dict[mp_id], entry, phase_diagram)
+                    if phase_data is not None:
+                        local_results.append(phase_data)
+                    
         except Exception as e:
             failed_systems.append((elements, str(e)))
             log_warning(f"Failed to process system {elements}: {e}", current_rank=rank, rank=rank)
-
+    
     log_info(f"Rank {rank} extracted {len(local_results)} phases", current_rank=rank, rank=rank)
 
     if failed_systems:
@@ -257,7 +305,7 @@ def extract_competing_phases(chemical_systems: List[List[str]], api_key: str) ->
     
     # Combine and process results on rank 0
     if rank == 0:
-        return combine_phase_results(all_results, all_failures, chemical_systems)
+        return combine_phase_results(all_results, all_failures, chemical_systems, system_to_compounds)
     else:
         return None
 
@@ -267,7 +315,8 @@ def extract_competing_phases(chemical_systems: List[List[str]], api_key: str) ->
 
 def combine_phase_results(all_results: List[List[Dict]], 
                          all_failures: List[List[Tuple]],
-                         chemical_systems: List[List[str]]) -> pd.DataFrame:
+                         chemical_systems: List[List[str]],
+                         system_to_compounds: Dict[str, pd.DataFrame] = None) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Combine phase results from all MPI ranks and create final DataFrame.
     
@@ -275,9 +324,12 @@ def combine_phase_results(all_results: List[List[Dict]],
         all_results: List of result lists from each MPI rank
         all_failures: List of failure lists from each MPI rank
         chemical_systems: Original list of chemical systems to verify completeness
+        system_to_compounds: Dictionary mapping chemical system string to DataFrame of compounds
         
     Returns:
-        Combined DataFrame with competing phase data
+        Tuple of (phases_df, failed_compounds_df):
+            - phases_df: Combined DataFrame with competing phase data
+            - failed_compounds_df: DataFrame with failed compounds (original input format)
     """
     # Flatten results from all ranks
     flat_results = [item for rank_results in all_results for item in rank_results]
@@ -319,7 +371,44 @@ def combine_phase_results(all_results: List[List[Dict]],
     
     log_info(f"Final competing phases database contains {len(phases_df)} unique phases")
     
-    return phases_df
+    # Create DataFrame for failed compounds (using original input format)
+    if flat_failures and system_to_compounds is not None:
+        failed_compounds_list = []
+        failed_systems_set = set()
+        
+        for system, error in flat_failures:
+            system_key = '-'.join(system)
+            if system_key not in failed_systems_set and system_key in system_to_compounds:
+                failed_systems_set.add(system_key)
+                # Get all compounds from this failed system
+                compounds_df = system_to_compounds[system_key]
+                failed_compounds_list.append(compounds_df)
+        
+        if failed_compounds_list:
+            failed_compounds_df = pd.concat(failed_compounds_list, ignore_index=False)
+            # Remove duplicates based on index
+            failed_compounds_df = failed_compounds_df[~failed_compounds_df.index.duplicated(keep='first')]
+            log_info(f"Created failed compounds DataFrame with {len(failed_compounds_df)} compounds from {len(failed_systems_set)} failed systems")
+        else:
+            # If no compounds found in mapping, create empty DataFrame
+            failed_compounds_df = pd.DataFrame()
+    elif flat_failures and system_to_compounds is None:
+        # Fallback: create simple error report if mapping not provided
+        log_warning("system_to_compounds mapping not provided, creating simplified error report")
+        failed_systems_data = []
+        for system, error in flat_failures:
+            failed_systems_data.append({
+                'chemical_system': '-'.join(system),
+                'elements': str(system),
+                'error_message': error
+            })
+        failed_compounds_df = pd.DataFrame(failed_systems_data)
+        failed_compounds_df = failed_compounds_df.drop_duplicates(subset=['chemical_system'])
+    else:
+        # No failures - create empty DataFrame
+        failed_compounds_df = pd.DataFrame()
+    
+    return phases_df, failed_compounds_df
 
 def validate_input_database(dataframe: pd.DataFrame, required_columns: List[str]) -> None:
     """
@@ -409,23 +498,28 @@ Examples:
             
             # Extract unique chemical systems
             log_info("Extracting unique chemical systems...")
-            chemical_systems = extract_unique_chemical_systems(
+            chemical_systems, system_to_compounds = extract_unique_chemical_systems(
                 compound_db, 
                 composition_column=args.composition_column
             )
         else:
             chemical_systems = None
+            system_to_compounds = None
         
-        # Broadcast chemical systems from rank 0 to all other ranks
+        # Broadcast chemical systems and compound mapping from rank 0 to all other ranks
         chemical_systems = comm.bcast(chemical_systems, root=0)
+        system_to_compounds = comm.bcast(system_to_compounds, root=0)
         log_info(f"Rank {rank} received {len(chemical_systems)} chemical systems", current_rank=rank)
         
         # Extract competing phases using MPI
         log_info("Extracting competing phases from Materials Project database...", current_rank=rank)
-        competing_phases_db = extract_competing_phases(chemical_systems, api_key=args.api_key)
+        result = extract_competing_phases(chemical_systems, api_key=args.api_key, 
+                                         system_to_compounds=system_to_compounds)
         
         # Save results (only on rank 0)
         if rank == 0:
+            competing_phases_db, failed_systems_db = result
+            
             if competing_phases_db is not None and not competing_phases_db.empty:
                 log_info(f"Saving results to {args.output}...")
                 competing_phases_db.to_csv(args.output, index=False)
@@ -436,10 +530,23 @@ Examples:
                 print(f"Input compounds: {len(compound_db)}")
                 print(f"Unique chemical systems: {len(chemical_systems)}")
                 print(f"Unique competing phases found: {len(competing_phases_db)}")
+                print(f"Failed chemical systems: {len(failed_systems_db)}")
                 
             else:
                 log_warning("No competing phases found - output file will be empty")
                 pd.DataFrame().to_csv(args.output, index=False)
+            
+            # Save failed compounds if requested
+            if args.failed_systems_output:
+                if not failed_systems_db.empty:
+                    log_info(f"Saving failed compounds to {args.failed_systems_output}...")
+                    # Save with index to maintain consistency with input format
+                    failed_systems_db.to_csv(args.failed_systems_output, index=True)
+                    log_info(f"Saved {len(failed_systems_db)} failed compounds")
+                else:
+                    log_info("No failed compounds to save")
+                    # Create empty DataFrame with same structure as input
+                    pd.DataFrame().to_csv(args.failed_systems_output, index=True)
         
         return 0
         
