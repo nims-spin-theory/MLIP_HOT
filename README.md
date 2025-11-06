@@ -133,6 +133,8 @@ An example input CSV file containing 100 compounds is included in the `example` 
    pip install qmpy_rester 
    ```
 
+4. **Scripts Path**: The examples below assume execution from within the `example` directory and use relative paths (`../scripts/`). If running from a different location or in your own application, adjust the script paths accordingly. The comprehensive workflow example demonstrates using a variable (`SCRIPTS_DIR`) to simplify path management.
+
 ### 1. Structure Optimization
 
 #### Basic Structure Optimization
@@ -141,7 +143,7 @@ Optimize crystal structures using different MLIP models with `MLIP_optimize.py`.
 
 ```bash
 # Using mattersim model
-mpirun -np 4 python MLIP_optimize.py \
+mpirun -np 4 python ../scripts/MLIP_optimize.py \
     -d ./example_data.csv \
     -m "mattersim" \
     -o "result_test1"
@@ -159,14 +161,14 @@ Apply strain perturbations before optimization to explore different initial stru
 
 ```bash
 # Scalar input for isotropic strain
-mpirun -np 10 python MLIP_optimize.py \
+mpirun -np 10 python ../scripts/MLIP_optimize.py \
     -d ./example_data.csv \
     -m "mattersim" \
     -o "result_test1" \
     --strain 0.1
 
 # 3x3 matrix for anisotropic strain
-mpirun -np 10 python MLIP_optimize.py \
+mpirun -np 10 python ../scripts/MLIP_optimize.py \
     -d ./example_data.csv \
     -m "mattersim" \
     -o "result_test1" \
@@ -182,7 +184,7 @@ In high-throughput research, the number of screened compounds is often very larg
 
 ```bash
 # Run optimization by separating database into 3 chunks
-mpirun -np 10 python MLIP_optimize.py \
+mpirun -np 10 python ../scripts/MLIP_optimize.py \
     -d ./example_data.csv \
     -m "mattersim" \
     -o "result_test1" \
@@ -194,7 +196,7 @@ mpirun -np 10 python MLIP_optimize.py \
 #   -r: Chunk index to process (0 <= r < s)
 
 # Concatenate results from multiple chunks
-python concat_csv.py \
+python ../scripts/concat_csv.py \
     -f "./result_test1" \
     -p "example_data_*.csv" \
     -o example_data_result_test1.csv
@@ -214,7 +216,7 @@ When initialized from different initial structures, optimization can converge to
 
 ```bash
 # Find global minimum energies across multiple result files
-python find_global_minimum.py \
+python ../scripts/find_global_minimum.py \
     -i example_data_result_test1.csv \
        example_data_result_test2.csv \
     -o example_data_result_global_min.csv
@@ -245,13 +247,13 @@ To calculate formation energies, we need the energies of constituent elements. A
 
 ```bash
 # Step 1: Optimize terminal elements
-mpirun -np 10 python MLIP_optimize.py \
+mpirun -np 10 python ../scripts/MLIP_optimize.py \
     -d ./terminal_elements.csv \
     -m "mattersim" \
     -o "terminal_elements_energy"
 
 # Step 2: Calculate formation energies
-python MLIP_form.py \
+python ../scripts/MLIP_form.py \
     -i example_data_result_global_min.csv \
     -t terminal_elements_energy/terminal_elements.csv \
     -o example_data_result_formation_energy.csv
@@ -284,7 +286,7 @@ The example below uses DFT structures from the OQMD database via QMPY Rester (`q
 
 ```bash
 # Get competing phases from OQMD database
-mpirun -np 10 python get_convex_hull_compounds_qmpy_rester.py \
+mpirun -np 10 python ../scripts/get_convex_hull_compounds_qmpy_rester.py \
     -d example_data.csv \
     -o convex_hull_compounds.csv \
     --failed_systems_output test_fail.csv
@@ -292,18 +294,18 @@ mpirun -np 10 python get_convex_hull_compounds_qmpy_rester.py \
 
 ``` bash
 # Optimize convex hull phases and calculate formation energy
-mpirun -np 10 python MLIP_optimize.py \
+mpirun -np 10 python ../scripts/MLIP_optimize.py \
     -d ./convex_hull_compounds.csv \
     -m "mattersim" \
     -o "convex_hull_compounds_energy"
 
-python MLIP_form.py \
+python ../scripts/MLIP_form.py \
     -i convex_hull_compounds_energy/convex_hull_compounds.csv \
     -t terminal_elements_energy/terminal_elements.csv \
     -o convex_hull_compounds_formation_energy.csv
 
 # Calculate distance to convex hull
-mpirun -np 4 python MLIP_hull.py \
+mpirun -np 4 python ../scripts/MLIP_hull.py \
     -d example_data_result_formation_energy.csv \
     -c convex_hull_compounds_formation_energy.csv \
     -o example_data_result_hull.csv
@@ -324,7 +326,7 @@ pip install mp-api
 
 This requires an API key, which can be obtained here: https://materialsproject.org/api
 ```bash
-mpirun -np 5 python get_convex_hull_compounds_mp_rester.py \
+mpirun -np 5 python ../scripts/get_convex_hull_compounds_mp_rester.py \
     -d example_data.csv \
     -o convex_hull_compounds.csv \
     --api_key='your_api_key_here'
@@ -350,7 +352,7 @@ The OQMD database can be installed on a local machine following the instructions
 **Recommendation:** Using the local database script is significantly faster and supports highly parallel execution with a large number of processes. Therefore, installing the local OQMD database is recommended for high-throughput workflows, despite requiring some initial setup time.
 
 ```bash
-mpirun -np 4 python get_convex_hull_compounds_qmpy.py \
+mpirun -np 4 python ../scripts/get_convex_hull_compounds_qmpy.py \
     -d example_data.csv \
     -o convex_hull_compounds.csv
 ```
@@ -379,12 +381,15 @@ This example demonstrates a complete pipeline from structure optimization to hul
 # Set environment variable for optimal performance
 export OMP_NUM_THREADS=1    # Limit OpenMP threads to prevent oversubscription
 
+# Set path to scripts folder
+SCRIPTS_DIR="../scripts"
+
 # ============================================================================
 # STEP 1: Structure Optimization with various initial structures
 # ============================================================================
 # Strain 1: Optimize with 0.1 strain, divided into 3 chunks
 for ((r = 0; r < 3; r++)); do
-    mpirun -np 10 python MLIP_optimize.py \
+    mpirun -np 10 python ${SCRIPTS_DIR}/MLIP_optimize.py \
         -d ./example/example_data.csv \
         -m "mattersim" \
         -o "opt_strain01" \
@@ -394,14 +399,14 @@ for ((r = 0; r < 3; r++)); do
 done
 
 # Concatenate results from all chunks
-python concat_csv.py \
+python ${SCRIPTS_DIR}/concat_csv.py \
     -f "./opt_strain01" \
     -p "example_data_*.csv" \
     -o example_data_opt_strain01.csv
 
 # Strain 2: Optimize with 0.15 strain, divided into 3 chunks
 for ((r = 0; r < 3; r++)); do
-    mpirun -np 10 python MLIP_optimize.py \
+    mpirun -np 10 python ${SCRIPTS_DIR}/MLIP_optimize.py \
         -d ./example/example_data.csv \
         -m "mattersim" \
         -o "opt_strain015" \
@@ -410,14 +415,14 @@ for ((r = 0; r < 3; r++)); do
         --strain 0.15
 done
 
-python concat_csv.py \
+python ${SCRIPTS_DIR}/concat_csv.py \
     -f "./opt_strain015" \
     -p "example_data_*.csv" \
     -o example_data_opt_strain015.csv
 
 # Strain 3: Optimize without strain 
 for ((r = 0; r < 3; r++)); do
-    mpirun -np 10 python MLIP_optimize.py \
+    mpirun -np 10 python ${SCRIPTS_DIR}/MLIP_optimize.py \
         -d ./example/example_data.csv \
         -m "mattersim" \
         -o "opt_no_strain" \
@@ -425,7 +430,7 @@ for ((r = 0; r < 3; r++)); do
         -r $r
 done
 
-python concat_csv.py \
+python ${SCRIPTS_DIR}/concat_csv.py \
     -f "./opt_no_strain" \
     -p "example_data_*.csv" \
     -o example_data_opt_no_strain.csv
@@ -433,7 +438,7 @@ python concat_csv.py \
 # ============================================================================
 # STEP 2: Find Global Minimum 
 # ============================================================================
-python find_global_minimum.py \
+python ${SCRIPTS_DIR}/find_global_minimum.py \
     -i example_data_opt_strain01.csv \
        example_data_opt_strain015.csv \
        example_data_opt_no_strain.csv \
@@ -442,7 +447,7 @@ python find_global_minimum.py \
 # ============================================================================
 # STEP 3: Calculate Terminal Element Reference Energies
 # ============================================================================
-mpirun -np 10 python MLIP_optimize.py \
+mpirun -np 10 python ${SCRIPTS_DIR}/MLIP_optimize.py \
     -d ./example/terminal_elements.csv \
     -m "mattersim" \
     -o "terminal_elements_energy"
@@ -450,7 +455,7 @@ mpirun -np 10 python MLIP_optimize.py \
 # ============================================================================
 # STEP 4: Calculate Formation Energies for Optimized Structures
 # ============================================================================
-python MLIP_form.py \
+python ${SCRIPTS_DIR}/MLIP_form.py \
     -i example_data_global_min.csv \
     -t terminal_elements_energy/terminal_elements.csv \
     -o example_data_formation_energy.csv
@@ -459,18 +464,18 @@ python MLIP_form.py \
 # STEP 5: Prepare Convex Hull Competing Phases
 # ============================================================================
 # Get competing phases from OQMD database using QMPY rester
-mpirun -np 10 python get_convex_hull_compounds_qmpy_rester.py \
+mpirun -np 10 python ${SCRIPTS_DIR}/get_convex_hull_compounds_qmpy_rester.py \
     -d example_data_global_min.csv \
     -o convex_hull_compounds.csv
 
 # Optimize convex hull competing phases
-mpirun -np 10 python MLIP_optimize.py \
+mpirun -np 10 python ${SCRIPTS_DIR}/MLIP_optimize.py \
     -d ./convex_hull_compounds.csv \
     -m "mattersim" \
     -o "convex_hull_compounds_energy"
 
 # Calculate formation energies for convex hull phases
-python MLIP_form.py \
+python ${SCRIPTS_DIR}/MLIP_form.py \
     -i convex_hull_compounds_energy/convex_hull_compounds.csv \
     -t terminal_elements_energy/terminal_elements.csv \
     -o convex_hull_compounds_formation_energy.csv
@@ -478,7 +483,7 @@ python MLIP_form.py \
 # ============================================================================
 # STEP 6: Calculate Distance to Convex Hull
 # ============================================================================
-mpirun -np 4 python MLIP_hull.py \
+mpirun -np 4 python ${SCRIPTS_DIR}/MLIP_hull.py \
     -d example_data_formation_energy.csv \
     -c convex_hull_compounds_formation_energy.csv \
     -o example_data_final_results.csv
@@ -573,7 +578,7 @@ pip install torch_scatter torch_sparse torch_spline_conv torch_geometric
 **Note**: For EquiformerV2 and eSEN MLIPs, the trained model checkpoints are not included in the FAIRChem package and must be downloaded separately from the official website: https://huggingface.co/facebook/OMAT24/tree/main. When using these models, specify the checkpoint path with the `--checkpoint_path` flag:
 
 ```bash
-mpirun -np 10 python MLIP_optimize.py \
+mpirun -np 10 python ../scripts/MLIP_optimize.py \
     -d ./example/example_data.csv \
     -m "eqV2_31M_omat" \
     -o "opt_results" \
