@@ -74,7 +74,7 @@ The MLIP-based structure optimization, formation energy calculation, and distanc
 flowchart LR
   %% Inputs
   A[Initial Crystal Structure]
-  D["Terminal Elements<br>DFT Structures (OQMD)"]
+  D["Terminal Elements<br>DFT Structures<br>(OQMD or MP)"]
   E["Convex Hull Phase<br>DFT Structures<br>(OQMD or MP)"]
 
   %% Computed outputs
@@ -113,7 +113,10 @@ flowchart LR
 
 ## Usage Examples
 
-An example input CSV file containing 100 compounds is included in the `example` directory. The following sections demonstrate typical usage for each script, concluding with a comprehensive workflow example that shows how to: (1) determine ground state structures and energies, (2) calculate formation energies, and (3) evaluate thermodynamic stability via convex hull distance.
+The following sections demonstrate typical usage for each script, concluding with a comprehensive workflow example that shows how to: (1) determine ground state structures and energies, (2) calculate formation energies, and (3) calculate convex hull distance. 
+
+An example input CSV file containing 100 compounds is included in the `example` directory.  This dataset is obtained from the [DXMag Computational HeuslerDB](https://www.nims.go.jp/group/spintheory/database/). Pre-computed results are also included to help verify your installation and compare outputs. Please check the `example/README.md` for more information of files included.
+
 
 **Important Notes:**
 
