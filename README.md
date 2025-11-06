@@ -37,9 +37,9 @@ Once conda is installed, you can create separate environments for each MLIP mode
 - **Flexible Job Distribution**: Submit dataset chunks separately across multiple computing resources
 - **Global Minimum Determination**: Identify the lowest-energy structure from multiple optimization runs with different initial configurations
 - **Formation Energy Calculations**: Compute formation energies using MLIP-derived reference energies
-- **Convex Hull Distance Analysis**: Evaluate thermodynamic stability through hull distance calculations with MLIP reference energies
-- **High-Quality Reference Structures**: Utilize DFT-optimized structures from OQMD and Materials Project databases as initial geometries for reference energy calculations
-- **Symmetrize**: The structure can be converted to primitive cell before optimization
+- **Convex Hull Distance Analysis**: Compute distance to convex hull using MLIP-derived reference energies
+- **High-Quality Reference Structures**: Utilize DFT-optimized structures from OQMD and Materials Project databases as initial configurations for reference energy calculations
+- **Symmetrize**: The structure can be converted to primitive cell before optimization to improve efficiency
 
 
 ## Available MLIP Models
@@ -278,14 +278,19 @@ where:
 
 To construct the convex hull of a chemical system using the same MLIP, obtain DFT structures from the OQMD or Materials Project database and use them as initial structures for MLIP optimization and formation energy calculation. With the convex hull compounds' formation energies and the formation energies of screened compounds, use the `MLIP_hull.py` script to calculate hull distances.
 
-The example below uses DFT structures from the OQMD database via QMPY, an open-source Python library for OQMD database management and analysis.   
+The example below uses DFT structures from the OQMD database via QMPY Rester (`qmpy_rester`). First, we retrieve the DFT structures of competing phases, which will serve as initial configurations for subsequent MLIP optimization.
+
+**Note:** QMPY Rester may encounter network connection issues. To address this, the script automatically makes 4 attempts for each compound, which succeeds for all compounds in most cases. However, if any compounds fail after all retry attempts, they will be saved to the file specified by `--failed_systems_output`. This file can then be used as input to rerun the same script, and the newly retrieved results can be merged with the original output.
 
 ```bash
 # Get competing phases from OQMD database
 mpirun -np 10 python get_convex_hull_compounds_qmpy_rester.py \
     -d example_data.csv \
-    -o convex_hull_compounds.csv
+    -o convex_hull_compounds.csv \
+    --failed_systems_output test_fail.csv
+```
 
+``` bash
 # Optimize convex hull phases and calculate formation energy
 mpirun -np 10 python MLIP_optimize.py \
     -d ./convex_hull_compounds.csv \
@@ -530,6 +535,8 @@ pip install mattersim
 
 ### HIENet
 
+Website: https://github.com/divelab/AIRS/tree/main/OpenMat/HIENet
+
 ```bash
 conda create -n MLIP_HIENet python=3.9
 conda activate MLIP_HIENet
@@ -550,7 +557,11 @@ conda install -c conda-forge libstdcxx-ng
 
 ### EquiformerV2 and eSEN
 
+Website: https://github.com/facebookresearch/fairchem
 Website: https://huggingface.co/facebook/OMAT24/tree/main
+
+The EquiformerV2 and eSEN MLIPs are implemented within FAIRChem version 1.10.0, which can be installed as follows:
+
 
 ```bash
 conda create -n MLIP_fairchem python=3.9
@@ -559,7 +570,7 @@ pip install fairchem-core==1.10.0
 pip install torch_scatter torch_sparse torch_spline_conv torch_geometric
 ```
 
-**Note**: For EquiformerV2 and eSEN MLIPs, download the trained model checkpoints from the official website: https://huggingface.co/facebook/OMAT24/tree/main. Specify the checkpoint path when using these models with the `--checkpoint_path` flag:
+**Note**: For EquiformerV2 and eSEN MLIPs, the trained model checkpoints are not included in the FAIRChem package and must be downloaded separately from the official website: https://huggingface.co/facebook/OMAT24/tree/main. When using these models, specify the checkpoint path with the `--checkpoint_path` flag:
 
 ```bash
 mpirun -np 10 python MLIP_optimize.py \
@@ -568,18 +579,6 @@ mpirun -np 10 python MLIP_optimize.py \
     -o "opt_results" \
     --checkpoint_path ./fairchem_checkpoints/eqV2_31M_omat.pt
 ```
-
-### GCC Version Issue
-
-If your GCC version is too low, after activating the conda environment:
-
-```bash
-conda install -y -c conda-forge gcc=11.3.0
-conda install -y -c conda-forge gxx=11.3.0
-gcc --version
-g++ --version
-```
-
 
 ## Citation
 
@@ -598,4 +597,20 @@ If you use this toolkit in your research, please cite:
 ```
 
 Additionally, please cite the specific MLIP models you use in your work. Refer to the official documentation and publications for each model listed in the **Available MLIP Models** section.
+
+
+## Troubleshooting
+
+#### GCC Version Issues
+
+If you encounter errors related to an outdated GCC version, you can upgrade GCC within your conda environment using the following commands:
+
+```bash
+conda install -y -c conda-forge gcc=11.3.0
+conda install -y -c conda-forge gxx=11.3.0
+gcc --version
+g++ --version
+```
+
+**Note**: Make sure your conda environment is activated before running these commands.
 
