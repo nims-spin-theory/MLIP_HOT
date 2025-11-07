@@ -52,13 +52,28 @@ This subdirectory contains pre-computed results from running the complete MLIP-H
 - **Description**: Competing phases retrieved from Materials Project database
 - **Purpose**: Validates the usage of the corresponding script
 
-### Extra File
+### Extra Files (`example_result/` directory)
 #### `example_data_dft.csv`
 - **Description**: DFT reference results for comparison with MLIP predictions
 - **Source**: Data obtained from [DXMag Computational HeuslerDB](https://www.nims.go.jp/group/spintheory/database/)
 - **Purpose**: Enables validation and benchmarking of MLIP predictions against DFT calculations
 - **Contains**: DFT-optimized structures, formation energies, and hull distances
 - **Note**: Formation energies and hull distances were computed using the QMPY package with data from the OQMD database
+
+#### `analysis_plots.py`
+- **Description**: Python script for comparing DFT reference data with MLIP predictions
+- **Purpose**: Generates comparison plots and calculates statistical metrics (R², MAE, RMSE) to validate MLIP performance
+- **Functionality**:
+  - Compares cell parameters (lattice constants) between DFT and ML predictions
+  - Compares formation energies between DFT and ML predictions
+  - Compares hull distances between DFT and ML predictions
+  - Calculates and displays statistical metrics for each comparison
+- **Output**: Three PNG files with comparison plots:
+  - `cell_parameters_comparison.png`
+  - `formation_energy_comparison.png`
+  - `hull_distance_comparison.png`
+- **Usage**: Run `python analysis_plots.py` from the `example_result/` directory
+
 
 
 ## File Format Notes
