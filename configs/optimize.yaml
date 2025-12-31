@@ -1,0 +1,15 @@
+# MLIP-HOT: Optimize only
+# Compatible with scripts/MLIP_HOT.py
+
+task: optimize
+
+optimize:
+  database_csv: example/example_data.csv
+  model: chgnet
+  output: example/example_result  # directory
+  size: 1
+  rank: 0
+  strain: "0.0"
+  symmetrize: false
+  # checkpoint_path: ./fairchem_checkpoints/eqV2_31M_omat.pt
+  # mpi: { enable: true, nproc: 4 }
