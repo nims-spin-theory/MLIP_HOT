@@ -75,12 +75,18 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PYTHON_EXE = sys.executable or "python"
 
 
-def resolve_path(p: Optional[str]) -> Optional[str]:
+def resolve_path(p: Optional[str], base: Optional[str] = None) -> Optional[str]:
+    """Resolve a path relative to a base directory.
+
+    - Absolute paths are returned unchanged.
+    - Relative paths are resolved against `base` if provided, otherwise CWD.
+    """
     if p is None:
         return None
     if os.path.isabs(p):
         return p
-    return os.path.abspath(os.path.join(SCRIPT_DIR, p))
+    base_dir = base or os.getcwd()
+    return os.path.abspath(os.path.join(base_dir, p))
 
 
 def load_config(path: str) -> Dict[str, Any]:
@@ -119,16 +125,16 @@ def run_cmd(cmd: List[str], print_commands: bool, dry_run: bool) -> int:
     return proc.returncode
 
 
-def run_optimize(cfg: Dict[str, Any], global_mpi: Optional[Dict[str, Any]], print_commands: bool, dry_run: bool) -> int:
+def run_optimize(cfg: Dict[str, Any], global_mpi: Optional[Dict[str, Any]], print_commands: bool, dry_run: bool, base_dir: str) -> int:
     mpi_cfg = cfg.get("mpi", global_mpi)
     cmd = build_base_cmd("MLIP_optimize.py", mpi_cfg)
     # Required args
     if "database_csv" not in cfg or "model" not in cfg or "output" not in cfg:
         raise ValueError("optimize.database_csv, optimize.model, and optimize.output are required")
     # Resolve paths
-    database_csv = resolve_path(cfg.get("database_csv"))
-    output = resolve_path(cfg.get("output"))
-    checkpoint_path = resolve_path(cfg.get("checkpoint_path")) if cfg.get("checkpoint_path") else None
+    database_csv = resolve_path(cfg.get("database_csv"), base=base_dir)
+    output = resolve_path(cfg.get("output"), base=base_dir)
+    checkpoint_path = resolve_path(cfg.get("checkpoint_path"), base=base_dir) if cfg.get("checkpoint_path") else None
     # Build args
     cmd += [
         "-d", database_csv,
@@ -147,7 +153,7 @@ def run_optimize(cfg: Dict[str, Any], global_mpi: Optional[Dict[str, Any]], prin
     return run_cmd(cmd, print_commands, dry_run)
 
 
-def run_form(cfg: Dict[str, Any], print_commands: bool, dry_run: bool) -> int:
+def run_form(cfg: Dict[str, Any], print_commands: bool, dry_run: bool, base_dir: str) -> int:
     cmd = build_base_cmd("MLIP_form.py", mpi_cfg=None)  # no MPI for form stage
     # Required args
     required = ["input", "database_terminal", "output"]
@@ -155,9 +161,9 @@ def run_form(cfg: Dict[str, Any], print_commands: bool, dry_run: bool) -> int:
         if k not in cfg:
             raise ValueError(f"form.{k} is required")
     # Resolve paths
-    input_path = resolve_path(cfg.get("input"))
-    terminal_path = resolve_path(cfg.get("database_terminal"))
-    output_path = resolve_path(cfg.get("output"))
+    input_path = resolve_path(cfg.get("input"), base=base_dir)
+    terminal_path = resolve_path(cfg.get("database_terminal"), base=base_dir)
+    output_path = resolve_path(cfg.get("output"), base=base_dir)
     # Build args
     cmd += [
         "-i", input_path,
@@ -176,7 +182,7 @@ def run_form(cfg: Dict[str, Any], print_commands: bool, dry_run: bool) -> int:
     return run_cmd(cmd, print_commands, dry_run)
 
 
-def run_hull(cfg: Dict[str, Any], global_mpi: Optional[Dict[str, Any]], print_commands: bool, dry_run: bool) -> int:
+def run_hull(cfg: Dict[str, Any], global_mpi: Optional[Dict[str, Any]], print_commands: bool, dry_run: bool, base_dir: str) -> int:
     mpi_cfg = cfg.get("mpi", global_mpi)
     cmd = build_base_cmd("MLIP_hull.py", mpi_cfg)
     # Required args
@@ -185,9 +191,9 @@ def run_hull(cfg: Dict[str, Any], global_mpi: Optional[Dict[str, Any]], print_co
         if k not in cfg:
             raise ValueError(f"hull.{k} is required")
     # Resolve paths
-    candidate_path = resolve_path(cfg.get("database_candidate"))
-    convex_path = resolve_path(cfg.get("database_convex"))
-    output_path = resolve_path(cfg.get("output"))
+    candidate_path = resolve_path(cfg.get("database_candidate"), base=base_dir)
+    convex_path = resolve_path(cfg.get("database_convex"), base=base_dir)
+    output_path = resolve_path(cfg.get("output"), base=base_dir)
     # Build args
     cmd += [
         "-d", candidate_path,
@@ -213,7 +219,7 @@ def main() -> int:
         description="MLIP-HOT: Orchestrate optimization, formation energy, and hull distance tasks via YAML config",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("-c", "--config", type=str, required=True, help="Path to YAML config file")
+    parser.add_argument("-c", "--config", type=str, required=True, help="Path to YAML config file (relative paths are resolved against the config directory)")
     parser.add_argument("--dry-run", action="store_true", help="Print commands and skip execution")
     parser.add_argument("--print-commands", action="store_true", help="Print the exact commands executed")
     parser.add_argument("--skip", nargs="*", choices=["optimize", "form", "hull"], default=[], help="Skip selected tasks")
@@ -261,7 +267,9 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    cfg = load_config(resolve_path(args.config))
+    config_path = resolve_path(args.config, base=os.getcwd())
+    cfg = load_config(config_path)
+    config_dir = os.path.dirname(config_path)
     # Merge global task override
     task = (args.task or str(cfg.get("task", "pipeline")).lower())
 
@@ -351,24 +359,24 @@ def main() -> int:
         if "optimize" in args.skip:
             print("[INFO] Optimize task skipped by --skip")
             return 0
-        return run_optimize(optimize_cfg, global_mpi, args.print_commands, args.dry_run)
+        return run_optimize(optimize_cfg, global_mpi, args.print_commands, args.dry_run, base_dir=config_dir)
 
     if task == "form":
         if "form" in args.skip:
             print("[INFO] Form task skipped by --skip")
             return 0
-        return run_form(form_cfg, args.print_commands, args.dry_run)
+        return run_form(form_cfg, args.print_commands, args.dry_run, base_dir=config_dir)
 
     if task == "hull":
         if "hull" in args.skip:
             print("[INFO] Hull task skipped by --skip")
             return 0
-        return run_hull(hull_cfg, global_mpi, args.print_commands, args.dry_run)
+        return run_hull(hull_cfg, global_mpi, args.print_commands, args.dry_run, base_dir=config_dir)
 
     if task == "pipeline":
         # Run sequentially: optimize -> form -> hull (unless skipped)
         if "optimize" not in args.skip:
-            rc = run_optimize(optimize_cfg, global_mpi, args.print_commands, args.dry_run)
+            rc = run_optimize(optimize_cfg, global_mpi, args.print_commands, args.dry_run, base_dir=config_dir)
             if rc != 0:
                 print(f"[ERROR] Optimize stage failed with exit code {rc}")
                 return rc
@@ -376,7 +384,7 @@ def main() -> int:
             print("[INFO] Optimize task skipped by --skip")
 
         if "form" not in args.skip:
-            rc = run_form(form_cfg, args.print_commands, args.dry_run)
+            rc = run_form(form_cfg, args.print_commands, args.dry_run, base_dir=config_dir)
             if rc != 0:
                 print(f"[ERROR] Form stage failed with exit code {rc}")
                 return rc
@@ -384,7 +392,7 @@ def main() -> int:
             print("[INFO] Form task skipped by --skip")
 
         if "hull" not in args.skip:
-            rc = run_hull(hull_cfg, global_mpi, args.print_commands, args.dry_run)
+            rc = run_hull(hull_cfg, global_mpi, args.print_commands, args.dry_run, base_dir=config_dir)
             if rc != 0:
                 print(f"[ERROR] Hull stage failed with exit code {rc}")
                 return rc
