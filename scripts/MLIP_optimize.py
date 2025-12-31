@@ -14,7 +14,7 @@ Features:
 - Strain application for finding global minima
 
 Usage:
-    mpirun -n <num_processes> python MLIP_optimize.py -d database.csv -m model_name -o output_dir -s size -r rank
+    mpirun -n <num_processes> python MLIP_optimize.py -i input.csv -m model_name -o output_dir -s size -r rank
 """
 
 import argparse
@@ -442,10 +442,10 @@ def main():
     )
     
     parser.add_argument(
-        "-d", "--database_csv", 
-        type=str, 
-        required=True, 
-        help="Path to the database CSV file."
+        "-i", "--input",
+        type=str,
+        required=True,
+        help="Path to the input CSV file."
     )
     parser.add_argument(
         "-m", "--model", 
@@ -484,8 +484,9 @@ def main():
     )
 
     parser.add_argument(
-        "--symmetrize", 
-        action="store_true", 
+        "--primitive-cell-conversion",
+        dest="primitive_cell_conversion",
+        action="store_true",
         help="Convert structures to primitive cell using spglib standardization after strain is applied. "
              "Default is False (keep original structures)."
     )
@@ -519,8 +520,8 @@ def main():
 
     # Load and process database
     if rank==0:
-        print(f"Loading database from {args.database_csv}")
-    db = pd.read_csv(args.database_csv, index_col=0)
+        print(f"Loading input from {args.input}")
+    db = pd.read_csv(args.input, index_col=0)
     if rank==0:
         print(f"Database shape: {db.shape}")
         print("Columns included in this database: ")
@@ -537,7 +538,7 @@ def main():
     local_data = scatter_dataframe(db_chunk)
 
     print(f"[Process {rank}/{size}] Starting optimization of {len(local_data)} compounds with model {args.model}.")
-    local_results = opt_loop_row(local_data, args.model, args.strain, args.symmetrize, args.checkpoint_path)
+    local_results = opt_loop_row(local_data, args.model, args.strain, args.primitive_cell_conversion, args.checkpoint_path)
     
     # Gather results from all processes
     gathered_results = comm.gather(local_results, root=0)
@@ -556,7 +557,8 @@ def main():
         db_chunk[result_columns] = all_results
 
         # Save results
-        db_name = os.path.splitext(os.path.basename(args.database_csv))[0]
+        # db_name = os.path.splitext(os.path.basename(args.input))[0]
+        db_name = "structure_optimization_result"
         os.makedirs(args.output, exist_ok=True)
         if args.size==1:
             output_file = os.path.join(args.output, f'{db_name}.csv')
@@ -599,8 +601,8 @@ def main():
             print("The strained structures are written to columns names 'strained_cell', 'strained_positions', and 'strained_numbers'.")
             print("The strained structures are passed to optimization procedure.")
 
-        if args.symmetrize:
-            print("The structures are symmetrized to primitive cell by spglib before optimization.")
+        if args.primitive_cell_conversion:
+            print("The structures are converted to primitive cell by spglib before optimization.")
 
         print('The optimized structures are written to columns names \'optimized_cell\', \'optimized_positions\', and \'optimized_numbers\'.')
         print('The energies of optimized structures are written to columns names \'Energy (eV/atom)\'.')

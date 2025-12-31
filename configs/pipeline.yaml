@@ -5,42 +5,26 @@
 task: pipeline
 
 # Optional global MPI settings (per-task overrides supported)
-# mpi:
-#   enable: true
-#   nproc: 4
+# mpi_nproc: 4
 
 # Stage 1: Optimization
 optimize:
-  database_csv: example/example_data.csv
+  input: example/example_data.csv
   model: chgnet
   output: example/example_result  # directory where optimized CSV will be written
   size: 1
   rank: 0
   strain: "0.0"
-  symmetrize: false
+  primitive_cell_conversion: false
   # checkpoint_path: ./fairchem_checkpoints/eqV2_31M_omat.pt
-  # mpi: { enable: true, nproc: 4 }
+  # mpi_nproc: 4
 
 # Stage 2: Formation energy
-# Input should point to the optimized CSV produced above:
-# - For size=1, filename is <db_name>.csv where db_name is basename of database_csv
 form:
-  input: example/example_result/example_data.csv
-  database_terminal: example/terminal_elements_mp.csv
-  output: example/example_result/example_data_dft.csv
-  formula_column_compound: optimized_formula
-  formula_column_terminal: composition
-  energy_column: Energy (eV/atom)
-  out_column: Formation Energy (eV/atom)
+  database_elements: example/terminal_elements_mp.csv
 
 # Stage 3: Hull distance
 hull:
-  database_candidate: example/example_result/example_data_dft.csv
   database_convex: example/example_result/convex_hull_compounds_mp.csv
-  output: example/example_result/example_data_result_mp.csv
-  formula_column_candidate: optimized_formula
-  formula_column_convex: optimized_formula
-  formE_column_candidate: Formation Energy (eV/atom)
-  formE_column_convex: Formation Energy (eV/atom)
-  out_column: Hull Distance (eV/atom)
-  # mpi: { enable: true, nproc: 4 }
+
+

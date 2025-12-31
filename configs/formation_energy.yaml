@@ -5,9 +5,10 @@ task: form
 
 form:
   input: example/example_result/example_data.csv
-  database_terminal: example/terminal_elements_mp.csv
+  database_elements: example/terminal_elements_mp.csv
   output: example/example_result/example_data_dft.csv
   formula_column_compound: optimized_formula
-  formula_column_terminal: composition
-  energy_column: Energy (eV/atom)
+  formula_column_elements: composition
+  energy_column_compound: Energy (eV/atom)
+  energy_column_elements: Energy (eV/atom)
   out_column: Formation Energy (eV/atom)

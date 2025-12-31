@@ -1,48 +1,36 @@
 # MLIP-based High-throughput Optimization and Thermodynamics (MLIP-HOT)
 
-A comprehensive toolkit for Machine Learning Interatomic Potential (MLIP) based calculations, including structural optimization, formation energy evaluation and convex hull analysis. This toolkit focuses on building a high-throughput pipeline for computational material discovery.
+A comprehensive toolkit for Machine Learning Interatomic Potential (MLIP) based calculations, including structural optimization, formation energy evaluation and convex hull analysis. This toolkit focuses on building a high-throughput pipeline for computational material discovery. Key advantages of this toolkit are its ease of use and high performance.
 
-The method was described and applied in this work: https://arxiv.org/abs/2508.20556.  If this toolkit is used, please cite this work and the models used.
-
+The method is described and demonstrated in our paper:
+https://arxiv.org/abs/2508.20556. If you use or extend MLIP-HOT, please cite this work.
 
 
 ## Overview
 
 This repository contains Python scripts and examples for:
-- **Structural Optimization**: Optimize crystal structures using various MLIPs (CHGNet, MatterSim, eSEN, etc.)
+- **Structural Optimization**: Optimize crystal structures using various MLIPs (CHGNet, MatterSim, eSEN-30M-OAM, etc.)
 - **Formation Energy Calculation**: Calculate formation energies using MLIP
 - **Convex Hull Analysis**: Calculate distance to convex hull using MLIP
 
-## Prerequisites
+This repository also contains useful scripts for:
+- **HTP Structure Generation**: Generate structures for screening compositions from a POSCAR or CIF input
+- **Convex Hull Compounds**: Retrieve convex hull compounds from OQMD and the Materials Project via API
+- **Phase Diagram Plot**: Generate phase diagrams for selected compounds
 
-Before using this toolkit, you need to have **Miniconda** or **Anaconda** installed on your system. Miniconda is a minimal installer for conda, which is used to create isolated Python environments for different MLIP models.
-
-**Installing Miniconda:**
-
-1. Download Miniconda from the official website: https://docs.conda.io/en/latest/miniconda.html
-2. Choose the installer for your operating system (Linux, macOS, or Windows)
-3. Follow the installation instructions for your platform
-
-**Verify Installation:**
-```bash
-conda --version
-```
-
-Once conda is installed, you can create separate environments for each MLIP model as described in the **MLIP Package Installation** section below.
-
-
-## Key Features
+#### Key Features
 
 - **MPI Parallelization**: Efficient processing of large datasets through distributed computing
 - **Flexible Job Distribution**: Submit dataset chunks separately across multiple computing resources
 - **Global Minimum Determination**: Identify the lowest-energy structure from multiple optimization runs with different initial configurations
 - **Formation Energy Calculations**: Compute formation energies using MLIP-derived reference energies
 - **Convex Hull Distance Analysis**: Compute distance to convex hull using MLIP-derived reference energies
-- **High-Quality Reference Structures**: Utilize DFT-optimized structures from OQMD and Materials Project databases as initial configurations for reference energy calculations
-- **Symmetrize**: The structure can be converted to primitive cell before optimization to improve efficiency
+- **High-Quality Reference Structures**: Utilize DFT-optimized structures from OQMD as initial configurations for reference energy calculations
+- **Primitive Cell Conversion**: The structure can be converted to primitive cell before optimization to improve efficiency
+- **No GPU device is required** This toolkit applies pre-trained MLIPs and can run efficiently on CPU.
 
 
-## Available MLIP Models
+## Supported MLIP Models
 
 This toolkit supports the following Machine Learning Interatomic Potential models:
 
@@ -65,6 +53,155 @@ This toolkit supports the following Machine Learning Interatomic Potential model
 For MLIP installation instructions, please refer to the **MLIP package installation** section below.
 
 The toolkit is designed with modularity in mind, allowing new MLIP models to be integrated seamlessly into the existing framework.
+
+
+
+## Prerequisites
+
+Before using this toolkit, you need to have **Miniconda** or **Anaconda** installed on your system. Miniconda is a minimal installer for conda, which is used to create isolated Python environments for different MLIP models.
+
+**Installing Miniconda:**
+
+1. Download Miniconda from the official website: https://docs.conda.io/en/latest/miniconda.html
+2. Choose the installer for your operating system (Linux, macOS, or Windows)
+3. Follow the installation instructions for your platform
+
+**Verify Installation:**
+```bash
+conda --version
+```
+
+Once conda is installed, you can create separate environments for each MLIP model as described in the **MLIP Package Installation** section below.
+
+
+
+
+
+## Usage
+
+MLIP-HOT provides a single entrypoint (`scripts/MLIP_HOT.py`) to run the full pipeline (Strucutre optimization → Formation enerngy → Distance above convex hull) or any individual stage using YAML configs. Relative paths in the YAML and CLI are resolved against the config file’s directory, so you can execute from any folder that contains your config and input CSVs.
+
+Within this usage tutorial, it will show:
+1. Quick Start: An simple example do all three tasks at once.
+2. Sepearte the job to several nodes for efficiency.
+3. Determine the global minimum by using multiple initial structures.
+4. Generate structures for screening compositions from a POSCAR or CIF input
+5. Retrieve convex hull compounds from OQMD and the Materials Project via API
+
+### Requirements
+
+- Python 3.8+
+- PyYAML for config parsing:
+
+```bash
+pip install pyyaml
+```
+
+### 1. Quick Start: An simple example do all three tasks at once.
+
+#### Create Env and install MLIP
+This example used `MatterSim` MLIP. To create the conda enviroment and install MatterSim, do the following. 
+
+   ```bash
+   conda create -n MLIP_mattersim python=3.9
+   conda activate MLIP_mattersim
+   pip install mattersim
+   ```
+ Installation instructions for other MLIPs are provided in the **MLIP Package Installation** section. We recommend installing each MLIP package in a separate conda environment. For the examples below using `mattersim`:
+
+#### Structure opitmization, formation enregy and hull distance calculation
+
+This example is inlcuded in the `example` folder. You can exeutue the following in the `example` folder to generate results directly. 
+
+```bash
+# activate env if it is not activated
+conda activate MLIP_mattersim 
+
+MLIP_HOT=../scripts/MLIP_HOT.py
+python3 $MLIP_HOT -c pipeline.yaml 
+```
+If the exmaple folder is copied to other place or the code is used in real practice, please change `MLIP_HOT=../scripts/MLIP_HOT.py`  to the absolute path to `MLIP_HOT.py` on your computer.
+
+All settings are controlled by the config file `pipeline.yaml`. Now, let's explain the meaning in this config file. 
+
+#### `configs/pipeline.yaml`
+
+```yaml
+# MLIP-HOT Orchestrator Pipeline Config
+# Compatible with scripts/MLIP_HOT.py
+
+# Select task: pipeline | optimize | form | hull
+task: pipeline # pipeline task do optimize, form, and hull
+
+# Optional global MPI settings, set nproc>1 to enable MPI
+mpi_nproc: 4
+
+# Stage 1: Optimization
+optimize:
+    input: ./example_data.csv # the input 
+    model: MatterSim             # use MLIP MatterSim 
+    output: ./example_result     # directory where optimized CSV will be written
+
+# Stage 2: Formation energy
+form:
+  database_elements: example/terminal_elements_mp.csv
+
+# Stage 3: Hull distance
+hull:
+  database_convex: example/example_result/convex_hull_compounds_mp.csv
+
+```
+
+
+#### Use the stage-specific configs to run only one task:
+
+Each stage (optimize/fomration enerngy/hull distance) can done seperately. For example, to do a single formation enregy calculation, the following config can be used. 
+
+
+```yaml
+task: form 
+
+form:
+    input: example/example_result/example_data.csv
+    database_elements: example/terminal_elements_mp.csv
+    output: example/example_result/example_data_dft.csv
+    formula_column_compound: optimized_formula
+    formula_column_elements: composition
+    energy_column_compound: Energy (eV/atom)
+    energy_column_elements: Energy (eV/atom)
+    out_column: Formation Energy (eV/atom)
+```
+
+
+
+
+### CLI Overrides (dotted flags)
+
+CLI flags can override values in the YAML. Use dotted flags aligned with config nesting:
+
+```bash
+# Change MLIP model and set MPI nproc for hull stage
+python3 scripts/MLIP_HOT.py \
+    -c configs/pipeline.yaml \
+    --opt.model mattersim \
+    --hull.mpi_nproc 4 \
+    --print-commands
+
+# Override output locations
+python3 scripts/MLIP_HOT.py \
+    -c configs/pipeline.yaml \
+    --opt.output example/example_result \
+    --form.output example/example_result/example_data_dft.csv \
+    --hull.output example/example_result/example_data_result_mp.csv \
+    --print-commands
+```
+
+Supported dotted flags include:
+
+- `--mpi.nproc` (global)
+- `--opt.input`, `--opt.model`, `--opt.output`, `--opt.size`, `--opt.rank`, `--opt.strain`, `--opt.primitive_cell_conversion`, `--opt.checkpoint_path`, `--opt.mpi_nproc`
+- `--form.input`, `--form.database_elements`, `--form.output`, `--form.formula_column_compound`, `--form.formula_column_elements`, `--form.energy_column_compound`, `--form.energy_column_elements`, `--form.out_column`
+- `--hull.input`, `--hull.database_convex`, `--hull.output`, `--hull.formula_column_compound`, `--hull.formula_column_convex`, `--hull.formE_column_compound`, `--hull.formE_column_convex`, `--hull.out_column`, `--hull.mpi_nproc`
 
 ## Common Workflow
 
@@ -113,7 +250,7 @@ flowchart LR
 
 ## Usage Examples
 
-The following sections demonstrate typical usage for each script, concluding with a comprehensive workflow example that shows how to: (1) determine ground state structures and energies, (2) calculate formation energies, and (3) calculate convex hull distance. 
+The following sections show legacy script-by-script usage. In most cases, we recommend using the orchestrator (`MLIP_HOT.py`) with the provided configs as shown above.
 
 An example input CSV file containing 100 compounds is included in the `example` directory.  This dataset is obtained from the [DXMag Computational HeuslerDB](https://www.nims.go.jp/group/spintheory/database/). Pre-computed results are also included to help verify your installation and compare outputs. Please check the `example/README.md` for more information of files included.
 
@@ -136,7 +273,7 @@ An example input CSV file containing 100 compounds is included in the `example` 
    pip install qmpy_rester 
    ```
 
-4. **Scripts Path**: The examples below assume execution from within the `example` directory and use relative paths (`../scripts/`). If running from a different location or in your own application, adjust the script paths accordingly. The comprehensive workflow example demonstrates using a variable (`SCRIPTS_DIR`) to simplify path management.
+4. **Scripts Path**: The examples below assume execution from within the `example` directory and use relative paths (`../scripts/`). When using `MLIP_HOT.py`, relative paths in your YAML are resolved against the config file’s directory, so you can run from any folder containing your config.
 
 ### 1. Structure Optimization
 
@@ -309,12 +446,12 @@ python ../scripts/MLIP_form.py \
 
 # Calculate distance to convex hull
 mpirun -np 4 python ../scripts/MLIP_hull.py \
-    -d example_data_result_formation_energy.csv \
+    -i example_data_result_formation_energy.csv \
     -c convex_hull_compounds_formation_energy.csv \
     -o example_data_result_hull.csv
 
 # Flags:
-#   -d: CSV file of screening compounds with formation energies
+#   -i: CSV file of screening compounds with formation energies
 #   -c: CSV file of convex hull compounds with formation energies
 #   -o: Output file containing hull distance (eV/atom)
 ```
@@ -371,7 +508,23 @@ DEFAULT_DB_CONFIG = {
 ```
 
 
-### Complete Workflow Example
+### Pipeline Example (MLIP_HOT)
+
+Run the end-to-end pipeline with a single command. Adjust paths and flags in `configs/pipeline.yaml`, or override via CLI.
+
+```bash
+# From repo root
+python3 scripts/MLIP_HOT.py -c configs/pipeline.yaml --print-commands
+
+# From the configs folder
+cd configs
+python3 ../scripts/MLIP_HOT.py -c pipeline.yaml --print-commands
+
+# With global MPI and stage override
+python3 ../scripts/MLIP_HOT.py -c pipeline.yaml --mpi.nproc 2 --opt.model mattersim --print-commands
+```
+
+### Complete Workflow Example (manual scripts)
 
 This example demonstrates a complete pipeline from structure optimization to hull distance calculation:
 
@@ -487,7 +640,7 @@ python ${SCRIPTS_DIR}/MLIP_form.py \
 # STEP 6: Calculate Distance to Convex Hull
 # ============================================================================
 mpirun -np 4 python ${SCRIPTS_DIR}/MLIP_hull.py \
-    -d example_data_formation_energy.csv \
+    -i example_data_formation_energy.csv \
     -c convex_hull_compounds_formation_energy.csv \
     -o example_data_final_results.csv
 

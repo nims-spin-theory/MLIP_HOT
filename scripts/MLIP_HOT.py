@@ -24,44 +24,48 @@ YAML config schema (minimal):
     task: pipeline  # or "optimize" | "form" | "hull"
 
     # Optional global MPI settings (per-task overrides supported)
-    mpi:
-      enable: false
-      nproc: 4
+    mpi_nproc: 4
 
     optimize:
-      database_csv: "../example/example_data.csv"
-      model: "chgnet"
-      output: "../example/example_result"  # directory
-      size: 1
-      rank: 0
-      strain: "0.0"  # scalar or matrix string
-      symmetrize: false
-      checkpoint_path: null
-      mpi: { enable: false, nproc: 4 }  # optional override
+        input: "../example/example_data.csv"
+        model: "chgnet"
+        output: "../example/example_result"  # directory
+        size: 1
+        rank: 0
+        strain: "0.0"  # scalar or matrix string
+        primitive_cell_conversion: false
+        checkpoint_path: null
+        # mpi_nproc: 4  # optional per-stage override
 
     form:
-      input: "../example/example_result/example_data_result_mp.csv"
-      database_terminal: "../example/terminal_elements_mp.csv"
-      output: "../example/example_result/example_data_dft.csv"
-      formula_column_compound: "optimized_formula"
-      formula_column_terminal: "composition"
-      energy_column: "Energy (eV/atom)"
-      out_column: "Formation Energy (eV/atom)"
-
+        database_elements: "../example/terminal_elements_mp.csv"
+        formula_column_compound: "optimized_formula"
+        formula_column_elements: "composition"
+        energy_column_compound: "Energy (eV/atom)"
+        energy_column_elements: "Energy (eV/atom)"
+        out_column: "Formation Energy (eV/atom)"
+    
     hull:
-      database_candidate: "../example/example_result/example_data_dft.csv"
-      database_convex: "../example/example_result/convex_hull_compounds_mp.csv"
-      output: "../example/example_result/example_data_result_mp.csv"
-      formula_column_candidate: "optimized_formula"
-      formula_column_convex: "optimized_formula"
-      formE_column_candidate: "Formation Energy (eV/atom)"
-      formE_column_convex: "Formation Energy (eV/atom)"
-      out_column: "Hull Distance (eV/atom)"
-      mpi: { enable: false, nproc: 4 }  # optional override
+        database_convex: "../example/example_result/convex_hull_compounds_mp.csv"
+        formula_column_compound: "optimized_formula"
+        formula_column_convex: "optimized_formula"
+        formE_column_compound: "Formation Energy (eV/atom)"
+        formE_column_convex: "Formation Energy (eV/atom)"
+        out_column: "Hull Distance (eV/atom)"
+        # mpi_nproc: 4  # optional per-stage override
 
 Notes:
-- Paths are resolved relative to this script if not absolute.
-- MPI tasks (optimize, hull) can be launched via mpirun when enabled.
+- Paths in configs/CLI are resolved relative to the config file directory.
+- MPI tasks (optimize, hull) use mpirun when nproc > 1.
+- Optimize stage outputs:
+    - Single run: structure_optimization_result.csv
+    - Chunked runs: structure_optimization_result_<size>_<rank>.csv
+ - Formation energy outputs (pipeline auto-naming):
+     - Single run: formation_energy.csv
+     - Chunked runs: formation_energy_<size>_<rank>.csv
+ - Hull distance outputs (pipeline auto-naming):
+     - Single run: hull_distance.csv
+     - Chunked runs: hull_distance_<size>_<rank>.csv
 """
 
 import argparse
@@ -89,6 +93,89 @@ def resolve_path(p: Optional[str], base: Optional[str] = None) -> Optional[str]:
     return os.path.abspath(os.path.join(base_dir, p))
 
 
+def compute_form_input_from_optimize_cfg(opt_cfg: Dict[str, Any], base_dir: str) -> Optional[str]:
+    """Compute the formation energy input path based on optimize config.
+
+    Mirrors current MLIP_optimize.py output naming:
+      - size == 1: <output>/structure_optimization_result.csv
+      - size > 1:  <output>/structure_optimization_result_<size>_<rank>.csv
+    """
+    out_dir = opt_cfg.get("output")
+    if not out_dir:
+        return None
+    try:
+        size = int(opt_cfg.get("size", 1))
+    except Exception:
+        size = 1
+    try:
+        rank = int(opt_cfg.get("rank", 0))
+    except Exception:
+        rank = 0
+    out_dir_abs = resolve_path(out_dir, base=base_dir)
+    base_name = "structure_optimization_result"
+    if size == 1:
+        return os.path.join(out_dir_abs, f"{base_name}.csv")
+    return os.path.join(out_dir_abs, f"{base_name}_{size}_{rank}.csv")
+
+
+def derive_form_output_from_optimize_cfg(opt_cfg: Dict[str, Any], base_dir: str) -> Optional[str]:
+    """Derive formation energy output path based on optimize config.
+
+    Naming:
+      - size == 1 → <optimize.output>/formation_energy.csv
+      - size > 1  → <optimize.output>/formation_energy_<size>_<rank>.csv
+    """
+    out_dir = opt_cfg.get("output")
+    if not out_dir:
+        return None
+    try:
+        size = int(opt_cfg.get("size", 1))
+    except Exception:
+        size = 1
+    try:
+        rank = int(opt_cfg.get("rank", 0))
+    except Exception:
+        rank = 0
+    out_dir_abs = resolve_path(out_dir, base=base_dir)
+    base_name = "formation_energy"
+    if size == 1:
+        return os.path.join(out_dir_abs, f"{base_name}.csv")
+    return os.path.join(out_dir_abs, f"{base_name}_{size}_{rank}.csv")
+
+
+def compute_hull_candidate_from_form_cfg(form_cfg: Dict[str, Any], base_dir: str) -> Optional[str]:
+    """Resolve the formation energy output to be used as hull candidate input."""
+    out_path = form_cfg.get("output")
+    if not out_path:
+        return None
+    return resolve_path(out_path, base=base_dir)
+
+
+def derive_hull_output_from_optimize_cfg(opt_cfg: Dict[str, Any], base_dir: str) -> Optional[str]:
+    """Derive hull distance output path based on optimize config.
+
+    Naming:
+      - size == 1 → <optimize.output>/hull_distance.csv
+      - size > 1  → <optimize.output>/hull_distance_<size>_<rank>.csv
+    """
+    out_dir = opt_cfg.get("output")
+    if not out_dir:
+        return None
+    try:
+        size = int(opt_cfg.get("size", 1))
+    except Exception:
+        size = 1
+    try:
+        rank = int(opt_cfg.get("rank", 0))
+    except Exception:
+        rank = 0
+    out_dir_abs = resolve_path(out_dir, base=base_dir)
+    base_name = "hull_distance"
+    if size == 1:
+        return os.path.join(out_dir_abs, f"{base_name}.csv")
+    return os.path.join(out_dir_abs, f"{base_name}_{size}_{rank}.csv")
+
+
 def load_config(path: str) -> Dict[str, Any]:
     ext = os.path.splitext(path)[1].lower()
     if ext not in [".yml", ".yaml"]:
@@ -104,13 +191,12 @@ def load_config(path: str) -> Dict[str, Any]:
     return data
 
 
-def build_base_cmd(script_name: str, mpi_cfg: Optional[Dict[str, Any]]) -> List[str]:
+def build_base_cmd(script_name: str, mpi_nproc: Optional[int]) -> List[str]:
     script_path = os.path.join(SCRIPT_DIR, script_name)
     if not os.path.exists(script_path):
         raise FileNotFoundError(f"Script not found: {script_path}")
-    mpi_enabled = bool(mpi_cfg and mpi_cfg.get("enable"))
-    nproc = int(mpi_cfg.get("nproc", 1)) if mpi_cfg else 1
-    if mpi_enabled:
+    nproc = int(mpi_nproc) if mpi_nproc is not None else 1
+    if nproc and nproc > 1:
         return ["mpirun", "-n", str(nproc), PYTHON_EXE, script_path]
     return [PYTHON_EXE, script_path]
 
@@ -125,19 +211,20 @@ def run_cmd(cmd: List[str], print_commands: bool, dry_run: bool) -> int:
     return proc.returncode
 
 
-def run_optimize(cfg: Dict[str, Any], global_mpi: Optional[Dict[str, Any]], print_commands: bool, dry_run: bool, base_dir: str) -> int:
-    mpi_cfg = cfg.get("mpi", global_mpi)
-    cmd = build_base_cmd("MLIP_optimize.py", mpi_cfg)
+def run_optimize(cfg: Dict[str, Any], global_mpi_nproc: Optional[int], print_commands: bool, dry_run: bool, base_dir: str) -> int:
+    stage_nproc = cfg.get("mpi_nproc", None)
+    mpi_nproc = stage_nproc if stage_nproc is not None else global_mpi_nproc
+    cmd = build_base_cmd("MLIP_optimize.py", mpi_nproc)
     # Required args
-    if "database_csv" not in cfg or "model" not in cfg or "output" not in cfg:
-        raise ValueError("optimize.database_csv, optimize.model, and optimize.output are required")
+    if "input" not in cfg or "model" not in cfg or "output" not in cfg:
+        raise ValueError("optimize.input, optimize.model, and optimize.output are required")
     # Resolve paths
-    database_csv = resolve_path(cfg.get("database_csv"), base=base_dir)
+    input_csv = resolve_path(cfg.get("input"), base=base_dir)
     output = resolve_path(cfg.get("output"), base=base_dir)
     checkpoint_path = resolve_path(cfg.get("checkpoint_path"), base=base_dir) if cfg.get("checkpoint_path") else None
     # Build args
     cmd += [
-        "-d", database_csv,
+        "-i", input_csv,
         "-m", str(cfg.get("model")),
         "-o", output,
         "-s", str(cfg.get("size", 1)),
@@ -146,23 +233,23 @@ def run_optimize(cfg: Dict[str, Any], global_mpi: Optional[Dict[str, Any]], prin
     strain = cfg.get("strain")
     if strain is not None:
         cmd += ["--strain", str(strain)]
-    if bool(cfg.get("symmetrize", False)):
-        cmd += ["--symmetrize"]
+    if bool(cfg.get("primitive_cell_conversion", False)):
+        cmd += ["--primitive-cell-conversion"]
     if checkpoint_path:
         cmd += ["--checkpoint_path", checkpoint_path]
     return run_cmd(cmd, print_commands, dry_run)
 
 
 def run_form(cfg: Dict[str, Any], print_commands: bool, dry_run: bool, base_dir: str) -> int:
-    cmd = build_base_cmd("MLIP_form.py", mpi_cfg=None)  # no MPI for form stage
+    cmd = build_base_cmd("MLIP_form.py", mpi_nproc=None)  # no MPI for form stage
     # Required args
-    required = ["input", "database_terminal", "output"]
+    required = ["input", "database_elements", "output"]
     for k in required:
         if k not in cfg:
             raise ValueError(f"form.{k} is required")
     # Resolve paths
     input_path = resolve_path(cfg.get("input"), base=base_dir)
-    terminal_path = resolve_path(cfg.get("database_terminal"), base=base_dir)
+    terminal_path = resolve_path(cfg.get("database_elements"), base=base_dir)
     output_path = resolve_path(cfg.get("output"), base=base_dir)
     # Build args
     cmd += [
@@ -173,40 +260,43 @@ def run_form(cfg: Dict[str, Any], print_commands: bool, dry_run: bool, base_dir:
     # Optional columns
     if cfg.get("formula_column_compound"):
         cmd += ["--formula_column_compound", str(cfg.get("formula_column_compound"))]
-    if cfg.get("formula_column_terminal"):
-        cmd += ["--formula_column_terminal", str(cfg.get("formula_column_terminal"))]
-    if cfg.get("energy_column"):
-        cmd += ["--energy_column", str(cfg.get("energy_column"))]
+    if cfg.get("formula_column_elements"):
+        cmd += ["--formula_column_elements", str(cfg.get("formula_column_elements"))]
+    if cfg.get("energy_column_compound"):
+        cmd += ["--energy_column_compound", str(cfg.get("energy_column_compound"))]
+    if cfg.get("energy_column_elements"):
+        cmd += ["--energy_column_elements", str(cfg.get("energy_column_elements"))]
     if cfg.get("out_column"):
         cmd += ["--out_column", str(cfg.get("out_column"))]
     return run_cmd(cmd, print_commands, dry_run)
 
 
-def run_hull(cfg: Dict[str, Any], global_mpi: Optional[Dict[str, Any]], print_commands: bool, dry_run: bool, base_dir: str) -> int:
-    mpi_cfg = cfg.get("mpi", global_mpi)
-    cmd = build_base_cmd("MLIP_hull.py", mpi_cfg)
+def run_hull(cfg: Dict[str, Any], global_mpi_nproc: Optional[int], print_commands: bool, dry_run: bool, base_dir: str) -> int:
+    stage_nproc = cfg.get("mpi_nproc", None)
+    mpi_nproc = stage_nproc if stage_nproc is not None else global_mpi_nproc
+    cmd = build_base_cmd("MLIP_hull.py", mpi_nproc)
     # Required args
-    required = ["database_candidate", "database_convex", "output"]
+    required = ["input", "database_convex", "output"]
     for k in required:
         if k not in cfg:
             raise ValueError(f"hull.{k} is required")
     # Resolve paths
-    candidate_path = resolve_path(cfg.get("database_candidate"), base=base_dir)
+    candidate_path = resolve_path(cfg.get("input"), base=base_dir)
     convex_path = resolve_path(cfg.get("database_convex"), base=base_dir)
     output_path = resolve_path(cfg.get("output"), base=base_dir)
     # Build args
     cmd += [
-        "-d", candidate_path,
+        "-i", candidate_path,
         "-c", convex_path,
         "-o", output_path,
     ]
     # Optional columns
-    if cfg.get("formula_column_candidate"):
-        cmd += ["--formula_column_candidate", str(cfg.get("formula_column_candidate"))]
+    if cfg.get("formula_column_compound"):
+        cmd += ["--formula_column_compound", str(cfg.get("formula_column_compound"))]
     if cfg.get("formula_column_convex"):
         cmd += ["--formula_column_convex", str(cfg.get("formula_column_convex"))]
-    if cfg.get("formE_column_candidate"):
-        cmd += ["--formE_column_candidate", str(cfg.get("formE_column_candidate"))]
+    if cfg.get("formE_column_compound"):
+        cmd += ["--formE_column_compound", str(cfg.get("formE_column_compound"))]
     if cfg.get("formE_column_convex"):
         cmd += ["--formE_column_convex", str(cfg.get("formE_column_convex"))]
     if cfg.get("out_column"):
@@ -222,48 +312,46 @@ def main() -> int:
     parser.add_argument("-c", "--config", type=str, required=True, help="Path to YAML config file (relative paths are resolved against the config directory)")
     parser.add_argument("--dry-run", action="store_true", help="Print commands and skip execution")
     parser.add_argument("--print-commands", action="store_true", help="Print the exact commands executed")
-    parser.add_argument("--skip", nargs="*", choices=["optimize", "form", "hull"], default=[], help="Skip selected tasks")
+    # Skip feature removed: tasks always run per `task` selection or full pipeline
 
     # Global overrides
     parser.add_argument("--task", choices=["pipeline", "optimize", "form", "hull"], help="Override task selection")
-    parser.add_argument("--mpi.enable", dest="mpi_enable", action="store_true", help="Enable global MPI (overridden by per-task mpi)")
-    parser.add_argument("--mpi.nproc", dest="mpi_nproc", type=int, help="Global MPI process count")
+    parser.add_argument("--mpi.nproc", dest="mpi_nproc", type=int, help="Global MPI process count (MPI enabled when nproc>1)")
 
     # Optimize overrides
     opt_grp = parser.add_argument_group("optimize overrides")
-    opt_grp.add_argument("--opt.database_csv", "--optimize.database_csv", dest="opt_database_csv", type=str, help="Path to input database CSV")
+    opt_grp.add_argument("--opt.input", dest="opt_input", type=str, help="Path to input CSV")
     opt_grp.add_argument("--opt.model", "--optimize.model", dest="opt_model", type=str, help="ML-FF model name")
     opt_grp.add_argument("--opt.output", "--optimize.output", dest="opt_output", type=str, help="Output directory for optimized results")
     opt_grp.add_argument("--opt.size", "--optimize.size", dest="opt_size", type=int, help="Number of chunks for separate jobs")
     opt_grp.add_argument("--opt.rank", "--optimize.rank", dest="opt_rank", type=int, help="Chunk number for this job")
     opt_grp.add_argument("--opt.strain", "--optimize.strain", dest="opt_strain", type=str, help="Strain (scalar or 3x3 matrix string)")
-    opt_grp.add_argument("--opt.symmetrize", "--optimize.symmetrize", dest="opt_symmetrize", action="store_true", help="Symmetrize to primitive before optimization")
+    opt_grp.add_argument("--opt.primitive_cell_conversion", dest="opt_primitive_cell_conversion", action="store_true", help="Convert to primitive cell before optimization")
     opt_grp.add_argument("--opt.checkpoint_path", "--optimize.checkpoint_path", dest="opt_checkpoint_path", type=str, help="Checkpoint path for eqV2/esen models")
-    opt_grp.add_argument("--opt.mpi_enable", "--optimize.mpi_enable", dest="opt_mpi_enable", action="store_true", help="Enable MPI for optimize stage")
-    opt_grp.add_argument("--opt.mpi_nproc", "--optimize.mpi_nproc", dest="opt_mpi_nproc", type=int, help="MPI process count for optimize stage")
+    opt_grp.add_argument("--opt.mpi_nproc", "--optimize.mpi_nproc", dest="opt_mpi_nproc", type=int, help="MPI process count for optimize stage (MPI enabled when nproc>1)")
 
     # Form overrides
     form_grp = parser.add_argument_group("formation overrides")
     form_grp.add_argument("--form.input", dest="form_input", type=str, help="Input optimized CSV path")
-    form_grp.add_argument("--form.database_terminal", dest="form_database_terminal", type=str, help="Terminal elements CSV path")
+    form_grp.add_argument("--form.database_elements", dest="form_database_elements", type=str, help="Terminal elements CSV path")
     form_grp.add_argument("--form.output", dest="form_output", type=str, help="Output CSV path for formation energies")
     form_grp.add_argument("--form.formula_column_compound", dest="form_formula_column_compound", type=str, help="Compound formula column name")
-    form_grp.add_argument("--form.formula_column_terminal", dest="form_formula_column_terminal", type=str, help="Terminal formula column name")
-    form_grp.add_argument("--form.energy_column", dest="form_energy_column", type=str, help="Energy column name")
+    form_grp.add_argument("--form.formula_column_elements", dest="form_formula_column_elements", type=str, help="Terminal formula column name")
+    form_grp.add_argument("--form.energy_column_compound", dest="form_energy_column_compound", type=str, help="Energy column name in input database")
+    form_grp.add_argument("--form.energy_column_elements", dest="form_energy_column_elements", type=str, help="Energy column name in elements database")
     form_grp.add_argument("--form.out_column", dest="form_out_column", type=str, help="Output column name for formation energy")
 
     # Hull overrides
     hull_grp = parser.add_argument_group("hull overrides")
-    hull_grp.add_argument("--hull.database_candidate", dest="hull_database_candidate", type=str, help="Candidate compounds CSV path")
+    hull_grp.add_argument("--hull.input", dest="hull_input", type=str, help="Candidate compounds CSV path")
     hull_grp.add_argument("--hull.database_convex", dest="hull_database_convex", type=str, help="Competing phases CSV path")
     hull_grp.add_argument("--hull.output", dest="hull_output", type=str, help="Output CSV path for hull distances")
-    hull_grp.add_argument("--hull.formula_column_candidate", dest="hull_formula_column_candidate", type=str, help="Candidate formula column name")
+    hull_grp.add_argument("--hull.formula_column_compound", dest="hull_formula_column_compound", type=str, help="Candidate formula column name")
     hull_grp.add_argument("--hull.formula_column_convex", dest="hull_formula_column_convex", type=str, help="Convex formula column name")
-    hull_grp.add_argument("--hull.formE_column_candidate", dest="hull_formE_column_candidate", type=str, help="Candidate formation energy column name")
+    hull_grp.add_argument("--hull.formE_column_compound", dest="hull_formE_column_compound", type=str, help="Compound formation energy column name")
     hull_grp.add_argument("--hull.formE_column_convex", dest="hull_formE_column_convex", type=str, help="Convex formation energy column name")
     hull_grp.add_argument("--hull.out_column", dest="hull_out_column", type=str, help="Output column name for hull distance")
-    hull_grp.add_argument("--hull.mpi_enable", dest="hull_mpi_enable", action="store_true", help="Enable MPI for hull stage")
-    hull_grp.add_argument("--hull.mpi_nproc", dest="hull_mpi_nproc", type=int, help="MPI process count for hull stage")
+    hull_grp.add_argument("--hull.mpi_nproc", dest="hull_mpi_nproc", type=int, help="MPI process count for hull stage (MPI enabled when nproc>1)")
 
     args = parser.parse_args()
 
@@ -273,15 +361,10 @@ def main() -> int:
     # Merge global task override
     task = (args.task or str(cfg.get("task", "pipeline")).lower())
 
-    # Global MPI merge
-    global_mpi = cfg.get("mpi", None)
-    if args.mpi_enable or args.mpi_nproc is not None:
-        if not global_mpi:
-            global_mpi = {"enable": False, "nproc": 1}
-        if args.mpi_enable:
-            global_mpi["enable"] = True
-        if args.mpi_nproc is not None:
-            global_mpi["nproc"] = int(args.mpi_nproc)
+    # Global MPI merge: single key 'mpi_nproc'
+    global_mpi_nproc = cfg.get("mpi_nproc", None)
+    if args.mpi_nproc is not None:
+        global_mpi_nproc = int(args.mpi_nproc)
 
     # Normalize sections
     optimize_cfg = dict(cfg.get("optimize", {}))
@@ -289,8 +372,8 @@ def main() -> int:
     hull_cfg = dict(cfg.get("hull", {}))
 
     # Apply optimize overrides
-    if args.opt_database_csv:
-        optimize_cfg["database_csv"] = args.opt_database_csv
+    if args.opt_input:
+        optimize_cfg["input"] = args.opt_input
     if args.opt_model:
         optimize_cfg["model"] = args.opt_model
     if args.opt_output:
@@ -301,103 +384,122 @@ def main() -> int:
         optimize_cfg["rank"] = int(args.opt_rank)
     if args.opt_strain is not None:
         optimize_cfg["strain"] = args.opt_strain
-    if args.opt_symmetrize:
-        optimize_cfg["symmetrize"] = True
+    if args.opt_primitive_cell_conversion:
+        optimize_cfg["primitive_cell_conversion"] = True
     if args.opt_checkpoint_path:
         optimize_cfg["checkpoint_path"] = args.opt_checkpoint_path
-    if args.opt_mpi_enable or args.opt_mpi_nproc is not None:
-        o_mpi = dict(optimize_cfg.get("mpi", {})) if optimize_cfg.get("mpi") else {"enable": False, "nproc": global_mpi["nproc"] if global_mpi else 1}
-        if args.opt_mpi_enable:
-            o_mpi["enable"] = True
-        if args.opt_mpi_nproc is not None:
-            o_mpi["nproc"] = int(args.opt_mpi_nproc)
-        optimize_cfg["mpi"] = o_mpi
+    if args.opt_mpi_nproc is not None:
+        optimize_cfg["mpi_nproc"] = int(args.opt_mpi_nproc)
 
     # Apply form overrides
     if args.form_input:
         form_cfg["input"] = args.form_input
-    if args.form_database_terminal:
-        form_cfg["database_terminal"] = args.form_database_terminal
+    if args.form_database_elements:
+        form_cfg["database_elements"] = args.form_database_elements
     if args.form_output:
         form_cfg["output"] = args.form_output
     if args.form_formula_column_compound:
         form_cfg["formula_column_compound"] = args.form_formula_column_compound
-    if args.form_formula_column_terminal:
-        form_cfg["formula_column_terminal"] = args.form_formula_column_terminal
-    if args.form_energy_column:
-        form_cfg["energy_column"] = args.form_energy_column
+    if args.form_formula_column_elements:
+        form_cfg["formula_column_elements"] = args.form_formula_column_elements
+    if args.form_energy_column_compound:
+        form_cfg["energy_column_compound"] = args.form_energy_column_compound
+    if args.form_energy_column_elements:
+        form_cfg["energy_column_elements"] = args.form_energy_column_elements
     if args.form_out_column:
         form_cfg["out_column"] = args.form_out_column
 
     # Apply hull overrides
-    if args.hull_database_candidate:
-        hull_cfg["database_candidate"] = args.hull_database_candidate
+    if args.hull_input:
+        hull_cfg["input"] = args.hull_input
     if args.hull_database_convex:
         hull_cfg["database_convex"] = args.hull_database_convex
     if args.hull_output:
         hull_cfg["output"] = args.hull_output
-    if args.hull_formula_column_candidate:
-        hull_cfg["formula_column_candidate"] = args.hull_formula_column_candidate
+    if args.hull_formula_column_compound:
+        hull_cfg["formula_column_compound"] = args.hull_formula_column_compound
     if args.hull_formula_column_convex:
         hull_cfg["formula_column_convex"] = args.hull_formula_column_convex
-    if args.hull_formE_column_candidate:
-        hull_cfg["formE_column_candidate"] = args.hull_formE_column_candidate
+    if args.hull_formE_column_compound:
+        hull_cfg["formE_column_compound"] = args.hull_formE_column_compound
     if args.hull_formE_column_convex:
         hull_cfg["formE_column_convex"] = args.hull_formE_column_convex
     if args.hull_out_column:
         hull_cfg["out_column"] = args.hull_out_column
-    if args.hull_mpi_enable or args.hull_mpi_nproc is not None:
-        h_mpi = dict(hull_cfg.get("mpi", {})) if hull_cfg.get("mpi") else {"enable": False, "nproc": global_mpi["nproc"] if global_mpi else 1}
-        if args.hull_mpi_enable:
-            h_mpi["enable"] = True
-        if args.hull_mpi_nproc is not None:
-            h_mpi["nproc"] = int(args.hull_mpi_nproc)
-        hull_cfg["mpi"] = h_mpi
+    if args.hull_mpi_nproc is not None:
+        hull_cfg["mpi_nproc"] = int(args.hull_mpi_nproc)
 
     # Execute according to task
     if task == "optimize":
-        if "optimize" in args.skip:
-            print("[INFO] Optimize task skipped by --skip")
-            return 0
-        return run_optimize(optimize_cfg, global_mpi, args.print_commands, args.dry_run, base_dir=config_dir)
+        return run_optimize(optimize_cfg, global_mpi_nproc, args.print_commands, args.dry_run, base_dir=config_dir)
 
     if task == "form":
-        if "form" in args.skip:
-            print("[INFO] Form task skipped by --skip")
-            return 0
         return run_form(form_cfg, args.print_commands, args.dry_run, base_dir=config_dir)
 
     if task == "hull":
-        if "hull" in args.skip:
-            print("[INFO] Hull task skipped by --skip")
-            return 0
-        return run_hull(hull_cfg, global_mpi, args.print_commands, args.dry_run, base_dir=config_dir)
+        return run_hull(hull_cfg, global_mpi_nproc, args.print_commands, args.dry_run, base_dir=config_dir)
 
     if task == "pipeline":
-        # Run sequentially: optimize -> form -> hull (unless skipped)
-        if "optimize" not in args.skip:
-            rc = run_optimize(optimize_cfg, global_mpi, args.print_commands, args.dry_run, base_dir=config_dir)
-            if rc != 0:
-                print(f"[ERROR] Optimize stage failed with exit code {rc}")
-                return rc
-        else:
-            print("[INFO] Optimize task skipped by --skip")
+        # Enforce pipeline-only auto-wiring: input/output for form and hull cannot be set by user
+        banned: List[str] = []
+        if "input" in form_cfg:
+            banned.append("form.input")
+        if "output" in form_cfg:
+            banned.append("form.output")
+        if "input" in hull_cfg:
+            banned.append("hull.input")
+        if "output" in hull_cfg:
+            banned.append("hull.output")
+        if banned:
+            raise ValueError(
+                "In pipeline task, do not set these keys in config/CLI: "
+                + ", ".join(banned)
+                + ". They are auto-wired by the orchestrator."
+            )
 
-        if "form" not in args.skip:
-            rc = run_form(form_cfg, args.print_commands, args.dry_run, base_dir=config_dir)
-            if rc != 0:
-                print(f"[ERROR] Form stage failed with exit code {rc}")
-                return rc
+        # Run sequentially: optimize -> form -> hull
+        rc = run_optimize(optimize_cfg, global_mpi_nproc, args.print_commands, args.dry_run, base_dir=config_dir)
+        if rc != 0:
+            print(f"[ERROR] Optimize stage failed with exit code {rc}")
+            return rc
+        # Wire optimize output CSV into form input when possible
+        # Determine optimize output path using the same naming logic
+        form_input_csv = compute_form_input_from_optimize_cfg(optimize_cfg, base_dir=config_dir)
+        if form_input_csv:
+            form_cfg["input"] = form_input_csv
+            # Derive formation energy output name consistently (size-aware)
+            derived_form_out = derive_form_output_from_optimize_cfg(optimize_cfg, base_dir=config_dir)
+            if derived_form_out:
+                form_cfg["output"] = derived_form_out
+            if args.print_commands:
+                print(f"[INFO] Pipeline: Set form.input = {form_input_csv}")
+                if derived_form_out:
+                    print(f"[INFO] Pipeline: Set form.output = {derived_form_out}")
         else:
-            print("[INFO] Form task skipped by --skip")
+            if args.print_commands:
+                print("[WARN] Pipeline: Could not determine optimize output; form.input unchanged")
 
-        if "hull" not in args.skip:
-            rc = run_hull(hull_cfg, global_mpi, args.print_commands, args.dry_run, base_dir=config_dir)
-            if rc != 0:
-                print(f"[ERROR] Hull stage failed with exit code {rc}")
-                return rc
-        else:
-            print("[INFO] Hull task skipped by --skip")
+        rc = run_form(form_cfg, args.print_commands, args.dry_run, base_dir=config_dir)
+        if rc != 0:
+            print(f"[ERROR] Form stage failed with exit code {rc}")
+            return rc
+        # Wire form output into hull candidate input
+        hull_candidate_csv = compute_hull_candidate_from_form_cfg(form_cfg, base_dir=config_dir)
+        if hull_candidate_csv and not hull_cfg.get("input"):
+            hull_cfg["input"] = hull_candidate_csv
+            if args.print_commands:
+                print(f"[INFO] Pipeline: Set hull.input = {hull_candidate_csv}")
+        # Derive hull output name consistently (size-aware)
+        derived_hull_out = derive_hull_output_from_optimize_cfg(optimize_cfg, base_dir=config_dir)
+        if derived_hull_out:
+            hull_cfg["output"] = derived_hull_out
+            if args.print_commands:
+                print(f"[INFO] Pipeline: Set hull.output = {derived_hull_out}")
+
+        rc = run_hull(hull_cfg, global_mpi_nproc, args.print_commands, args.dry_run, base_dir=config_dir)
+        if rc != 0:
+            print(f"[ERROR] Hull stage failed with exit code {rc}")
+            return rc
         print("[INFO] Pipeline completed successfully")
         return 0
 

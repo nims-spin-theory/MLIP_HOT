@@ -4,12 +4,12 @@
 task: optimize
 
 optimize:
-  database_csv: example/example_data.csv
+  input: example/example_data.csv
   model: chgnet
   output: example/example_result  # directory
   size: 1
   rank: 0
   strain: "0.0"
-  symmetrize: false
+  primitive_cell_conversion: false
   # checkpoint_path: ./fairchem_checkpoints/eqV2_31M_omat.pt
-  # mpi: { enable: true, nproc: 4 }
+  # mpi_nproc: 4

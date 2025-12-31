@@ -9,7 +9,7 @@ while positive distances indicate metastable compounds.
 The script uses MPI for parallel processing to efficiently handle large datasets.
 
 Example usage:
-    mpirun -n 4 python MLIP_hull.py -d candidates.csv -c convex_phases.csv -o results.csv
+    mpirun -n 4 python MLIP_hull.py -i candidates.csv -c convex_phases.csv -o results.csv
 """
 
 import argparse
@@ -396,15 +396,15 @@ def main() -> int:
     examples = """
 Examples:
     Basic usage with MPI:
-        mpirun -n 4 python MLIP_hull.py -d candidates.csv -c convex_phases.csv -o results.csv
+        mpirun -n 4 python MLIP_hull.py -i candidates.csv -c convex_phases.csv -o results.csv
     
     Single process:
-        python MLIP_hull.py -d candidates.csv -c convex_phases.csv -o results.csv
+        python MLIP_hull.py -i candidates.csv -c convex_phases.csv -o results.csv
     
     Custom column names:
-        mpirun -n 8 python MLIP_hull.py -d data.csv -c phases.csv -o hull_results.csv \\
-            --formula_column_candidate "formula" \\
-            --formE_column_candidate "formation_energy"
+        mpirun -n 8 python MLIP_hull.py -i data.csv -c phases.csv -o hull_results.csv \
+            --formula_column_compound "formula" \\
+            --formE_column_compound "formation_energy"
     """
     
     parser = argparse.ArgumentParser(
@@ -417,7 +417,7 @@ Examples:
     )
     
     # Required arguments
-    parser.add_argument("-d", "--database_candidate", type=str, required=True,
+    parser.add_argument("-i", "--input", type=str, required=True,
                        help="Path to CSV file containing candidate compounds for hull evaluation")
     parser.add_argument("-c", "--database_convex", type=str, required=True,
                        help="Path to CSV file containing competing phases with formation energies")
@@ -425,12 +425,12 @@ Examples:
                        help="Output CSV file path for results with hull distances")
     
     # Optional arguments for column names
-    parser.add_argument("--formula_column_candidate", type=str, default="optimized_formula",
-                       help="Column name containing formulas in candidate database")
+    parser.add_argument("--formula_column_compound", type=str, default="optimized_formula",
+                       help="Column name containing formulas in input database")
     parser.add_argument("--formula_column_convex", type=str, default="optimized_formula",
                        help="Column name containing formulas in convex phases database")
-    parser.add_argument("--formE_column_candidate", type=str, default="Formation Energy (eV/atom)",
-                       help="Column name containing formation energies in candidate database")
+    parser.add_argument("--formE_column_compound", type=str, default="Formation Energy (eV/atom)",
+                       help="Column name containing formation energies in input database")
     parser.add_argument("--formE_column_convex", type=str, default="Formation Energy (eV/atom)",
                        help="Column name containing formation energies in convex phases database")
     parser.add_argument("--out_column", type=str, default="Hull Distance (eV/atom)",
@@ -443,16 +443,16 @@ Examples:
         print_mpi_info(rank, size)
         
         # Load and validate candidate compounds database
-        log_info(f"Loading candidate compounds from {args.database_candidate}...", current_rank=rank)
+        log_info(f"Loading candidate compounds from {args.input}...", current_rank=rank)
         
-        if not os.path.exists(args.database_candidate):
-            raise FileNotFoundError(f"Candidate database file not found: {args.database_candidate}")
+        if not os.path.exists(args.input):
+            raise FileNotFoundError(f"Candidate database file not found: {args.input}")
         
-        candidates_db = pd.read_csv(args.database_candidate)
+        candidates_db = pd.read_csv(args.input)
         log_info(f"Loaded {len(candidates_db)} candidate compounds", current_rank=rank)
         
         # Validate candidate database
-        required_candidate_cols = [args.formula_column_candidate, args.formE_column_candidate]
+        required_candidate_cols = [args.formula_column_compound, args.formE_column_compound]
         validate_dataframe(candidates_db, required_candidate_cols, "Candidate compounds database")
         
         # Load and validate convex phases database
@@ -483,8 +483,8 @@ Examples:
         result_db = calculate_hull_distances_parallel(
             candidates_db,
             convex_phases,
-            formula_column=args.formula_column_candidate,
-            formation_energy_column=args.formE_column_candidate,
+            formula_column=args.formula_column_compound,
+            formation_energy_column=args.formE_column_compound,
             output_column=args.out_column
         )
         
