@@ -10,7 +10,7 @@ task: pipeline
 # Stage 1: Optimization
 optimize:
   input: example/example_data.csv
-  model: chgnet
+  model: mattersim
   output: example/example_result  # directory where optimized CSV will be written
   size: 1
   rank: 0

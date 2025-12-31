@@ -93,6 +93,33 @@ def resolve_path(p: Optional[str], base: Optional[str] = None) -> Optional[str]:
     return os.path.abspath(os.path.join(base_dir, p))
 
 
+def get_reference_db_paths_for_model(model: Optional[str]) -> Dict[str, str]:
+        """Return default reference DB CSV paths for a given model.
+
+        Paths are resolved relative to this orchestrator's location:
+            <MLIP_HOT.py dir>/../referenceDB/
+
+        Naming convention (OQMD):
+            - elements CSV:     OQMD_<model>_elements.csv
+            - convex hull CSV:  OQMD_<model>_convex_hull.csv
+
+        Only returns paths that exist on disk, allowing users to add new files
+        later without code changes; model is used to select filenames.
+        """
+        if not model:
+                return {}
+        m = str(model).strip().lower()
+        base_ref_dir = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "referenceDB"))
+        elements_csv = os.path.join(base_ref_dir, f"OQMD_{m}_elements.csv")
+        convex_csv = os.path.join(base_ref_dir, f"OQMD_{m}_convex_hull.csv")
+        paths: Dict[str, str] = {}
+        if os.path.exists(elements_csv):
+                paths["elements"] = elements_csv
+        if os.path.exists(convex_csv):
+                paths["convex"] = convex_csv
+        return paths
+
+
 def compute_form_input_from_optimize_cfg(opt_cfg: Dict[str, Any], base_dir: str) -> Optional[str]:
     """Compute the formation energy input path based on optimize config.
 
@@ -391,6 +418,15 @@ def main() -> int:
     if args.opt_mpi_nproc is not None:
         optimize_cfg["mpi_nproc"] = int(args.opt_mpi_nproc)
 
+    # Auto-set reference DB paths based on optimize.model (e.g., MatterSim)
+    ref_paths = get_reference_db_paths_for_model(optimize_cfg.get("model"))
+    if ref_paths.get("elements") and not form_cfg.get("database_elements"):
+        form_cfg["database_elements"] = ref_paths["elements"]
+        # Print info for visibility when requested
+        # Note: base_dir resolution is not needed; these are absolute paths
+    if ref_paths.get("convex") and not hull_cfg.get("database_convex"):
+        hull_cfg["database_convex"] = ref_paths["convex"]
+
     # Apply form overrides
     if args.form_input:
         form_cfg["input"] = args.form_input
@@ -472,6 +508,9 @@ def main() -> int:
             if derived_form_out:
                 form_cfg["output"] = derived_form_out
             if args.print_commands:
+                # Inform about auto-set database paths if they were applied
+                if ref_paths.get("elements"):
+                    print(f"[INFO] Auto-set form.database_elements = {form_cfg.get('database_elements')}")
                 print(f"[INFO] Pipeline: Set form.input = {form_input_csv}")
                 if derived_form_out:
                     print(f"[INFO] Pipeline: Set form.output = {derived_form_out}")
@@ -494,6 +533,8 @@ def main() -> int:
         if derived_hull_out:
             hull_cfg["output"] = derived_hull_out
             if args.print_commands:
+                if ref_paths.get("convex"):
+                    print(f"[INFO] Auto-set hull.database_convex = {hull_cfg.get('database_convex')}")
                 print(f"[INFO] Pipeline: Set hull.output = {derived_hull_out}")
 
         rc = run_hull(hull_cfg, global_mpi_nproc, args.print_commands, args.dry_run, base_dir=config_dir)

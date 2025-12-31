@@ -5,7 +5,7 @@ task: optimize
 
 optimize:
   input: example/example_data.csv
-  model: chgnet
+  model: mattersim
   output: example/example_result  # directory
   size: 1
   rank: 0
