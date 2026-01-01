@@ -7,9 +7,9 @@ hull:
   input: example/example_result/example_data_dft.csv
   database_convex: example/example_result/convex_hull_compounds_mp.csv
   output: example/example_result/example_data_result_mp.csv
-  formula_column_compound: optimized_formula
-  formula_column_convex: optimized_formula
-  formE_column_compound: Formation Energy (eV/atom)
+  composition_column_input: optimized_formula
+  composition_column_convex: optimized_formula
+  formE_column_input: Formation Energy (eV/atom)
   formE_column_convex: Formation Energy (eV/atom)
   out_column: Hull Distance (eV/atom)
   # mpi_nproc: 4

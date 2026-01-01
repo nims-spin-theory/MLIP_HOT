@@ -15,17 +15,17 @@ All energies are in eV per atom units.
 
 Example usage:
     Basic usage:
-        python MLIP_form.py -i compounds.csv -t terminal.csv -o results.csv
+        python MLIP_form.py -i compounds.csv -e terminal.csv -o results.csv
     
     Custom column names:
-        python MLIP_form.py -i compounds.csv -t terminal.csv -o results.csv \
-            --formula_column_compound "formula" \
-            --energy_column "energy_per_atom" \
+        python MLIP_form.py -i compounds.csv -e terminal.csv -o results.csv \
+            --composition_column_input "formula" \
+            --form_energy_column_input "energy_per_atom" \
             --out_column "formation_energy"
     
     With specific terminal element column:
-        python MLIP_form.py -i compounds.csv -t elements.csv -o out.csv \
-            --formula_column_elements "symbol"
+        python MLIP_form.py -i compounds.csv -e elements.csv -o out.csv \
+            --composition_column_elements "symbol"
 """
 
 import argparse
@@ -241,17 +241,17 @@ def main():
     # Required arguments
     parser.add_argument("-i", "--input", type=str, required=True,
                        help="Path to the compound CSV file")
-    parser.add_argument("-t", "--database_elements", type=str, required=True,
+    parser.add_argument("-e", "--database_elements", type=str, required=True,
                        help="Path to terminal elements energy CSV file")
     parser.add_argument("-o", "--output", type=str, required=True,
                        help="Output CSV file path")
     
     # Optional arguments
-    parser.add_argument("--formula_column_compound", type=str, default="optimized_formula",
+    parser.add_argument("--composition_column_input", type=str, default="optimized_formula",
                        help="Column name containing chemical formulas in input database")
-    parser.add_argument("--formula_column_elements", type=str, default="composition",
+    parser.add_argument("--composition_column_elements", type=str, default="composition",
                        help="Column name containing element symbols in terminal elements database")
-    parser.add_argument("--energy_column_compound", type=str, default="Energy (eV/atom)",
+    parser.add_argument("--form_energy_column_input", "--energy_column_compound", type=str, default="Energy (eV/atom)",
                        help="Column name containing ML energies in the input compounds database")
     parser.add_argument("--energy_column_elements", type=str, default="Energy (eV/atom)",
                        help="Column name containing ML energies in the terminal elements database")
@@ -271,14 +271,14 @@ def main():
         # Validate terminal database
         validate_dataframe(
             terminal_db, 
-            [args.formula_column_elements, args.energy_column_elements],
+            [args.composition_column_elements, args.energy_column_elements],
             "Terminal elements database"
         )
         
         log_info("Creating terminal energy dictionary...")
         terminal_energies = create_energy_dictionary(
             terminal_db, 
-            key_column=args.formula_column_elements, 
+            key_column=args.composition_column_elements, 
             value_column=args.energy_column_elements
         )
         log_info(f"Terminal elements: {list(terminal_energies.keys())}")
@@ -289,7 +289,7 @@ def main():
         # Validate compound database
         validate_dataframe(
             compound_db,
-            [args.formula_column_compound, args.energy_column_compound],
+            [args.composition_column_input, args.form_energy_column_input],
             "Compound database"
         )
         
@@ -297,8 +297,8 @@ def main():
         compound_db = update_formation_energies(
             compound_db, 
             terminal_energies,
-            formula_column=args.formula_column_compound,
-            energy_column=args.energy_column_compound,
+            formula_column=args.composition_column_input,
+            energy_column=args.form_energy_column_input,
             output_column=args.out_column
         )
         

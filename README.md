@@ -132,6 +132,7 @@ All settings are controlled by the config file `pipeline.yaml`. Now, let's expla
 
 # Select task: pipeline | optimize | form | hull
 task: pipeline # pipeline task do optimize, form, and hull
+model: MatterSim
 
 # Optional global MPI settings, set nproc>1 to enable MPI
 mpi_nproc: 4
@@ -139,8 +140,7 @@ mpi_nproc: 4
 # Stage 1: Optimization
 optimize:
     input: ./example_data.csv # the input 
-    model: MatterSim             # use MLIP MatterSim 
-    output: ./example_result     # directory where optimized CSV will be written
+    output: ./example_result  # directory where optimized CSV will be written
 
 # Stage 2: Formation energy
 form:
@@ -177,13 +177,13 @@ form:
 
 ### CLI Overrides (dotted flags)
 
-CLI flags can override values in the YAML. Use dotted flags aligned with config nesting:
+CLI flags can override values in the YAML. Use dotted flags aligned with config nesting (plus global flags):
 
 ```bash
-# Change MLIP model and set MPI nproc for hull stage
+# Change MLIP model (global) and set MPI nproc for hull stage
 python3 scripts/MLIP_HOT.py \
     -c configs/pipeline.yaml \
-    --opt.model mattersim \
+    --model mattersim \
     --hull.mpi_nproc 4 \
     --print-commands
 
@@ -198,10 +198,10 @@ python3 scripts/MLIP_HOT.py \
 
 Supported dotted flags include:
 
-- `--mpi.nproc` (global)
-- `--opt.input`, `--opt.model`, `--opt.output`, `--opt.size`, `--opt.rank`, `--opt.strain`, `--opt.primitive_cell_conversion`, `--opt.checkpoint_path`, `--opt.mpi_nproc`
+- `--mpi.nproc`, `--model` (global)
+- `--opt.input`, `--opt.output`, `--opt.size`, `--opt.rank`, `--opt.strain`, `--opt.primitive_cell_conversion`, `--opt.checkpoint_path`, `--opt.mpi_nproc`
 - `--form.input`, `--form.database_elements`, `--form.output`, `--form.formula_column_compound`, `--form.formula_column_elements`, `--form.energy_column_compound`, `--form.energy_column_elements`, `--form.out_column`
-- `--hull.input`, `--hull.database_convex`, `--hull.output`, `--hull.formula_column_compound`, `--hull.formula_column_convex`, `--hull.formE_column_compound`, `--hull.formE_column_convex`, `--hull.out_column`, `--hull.mpi_nproc`
+- `--hull.input`, `--hull.database_convex`, `--hull.output`, `--hull.composition_column_input`, `--hull.composition_column_convex`, `--hull.formE_column_input`, `--hull.formE_column_convex`, `--hull.out_column`, `--hull.mpi_nproc`
 
 ## Common Workflow
 

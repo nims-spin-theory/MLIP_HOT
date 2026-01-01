@@ -3,14 +3,14 @@
 
 # Select task: pipeline | optimize | form | hull
 task: pipeline
+model: mattersim
 
 # Optional global MPI settings (per-task overrides supported)
-# mpi_nproc: 4
+mpi_nproc: 4
 
 # Stage 1: Optimization
 optimize:
   input: example/example_data.csv
-  model: mattersim
   output: example/example_result  # directory where optimized CSV will be written
   size: 1
   rank: 0

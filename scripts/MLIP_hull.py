@@ -403,8 +403,8 @@ Examples:
     
     Custom column names:
         mpirun -n 8 python MLIP_hull.py -i data.csv -c phases.csv -o hull_results.csv \
-            --formula_column_compound "formula" \\
-            --formE_column_compound "formation_energy"
+            --composition_column_input "formula" \
+            --formE_column_input "formation_energy"
     """
     
     parser = argparse.ArgumentParser(
@@ -425,11 +425,11 @@ Examples:
                        help="Output CSV file path for results with hull distances")
     
     # Optional arguments for column names
-    parser.add_argument("--formula_column_compound", type=str, default="optimized_formula",
-                       help="Column name containing formulas in input database")
-    parser.add_argument("--formula_column_convex", type=str, default="optimized_formula",
-                       help="Column name containing formulas in convex phases database")
-    parser.add_argument("--formE_column_compound", type=str, default="Formation Energy (eV/atom)",
+    parser.add_argument("--composition_column_input", type=str, default="optimized_formula",
+                       help="Column name containing compound compositions in input database")
+    parser.add_argument("--composition_column_convex", type=str, default="composition",
+                       help="Column name containing compound compositions in convex phases database")
+    parser.add_argument("--formE_column_input", type=str, default="Formation Energy (eV/atom)",
                        help="Column name containing formation energies in input database")
     parser.add_argument("--formE_column_convex", type=str, default="Formation Energy (eV/atom)",
                        help="Column name containing formation energies in convex phases database")
@@ -452,7 +452,7 @@ Examples:
         log_info(f"Loaded {len(candidates_db)} candidate compounds", current_rank=rank)
         
         # Validate candidate database
-        required_candidate_cols = [args.formula_column_compound, args.formE_column_compound]
+        required_candidate_cols = [args.composition_column_input, args.formE_column_input]
         validate_dataframe(candidates_db, required_candidate_cols, "Candidate compounds database")
         
         # Load and validate convex phases database
@@ -465,14 +465,14 @@ Examples:
         log_info(f"Loaded {len(convex_db)} competing phases", current_rank=rank)
         
         # Validate convex phases database
-        required_convex_cols = [args.formula_column_convex, args.formE_column_convex]
+        required_convex_cols = [args.composition_column_convex, args.formE_column_convex]
         validate_dataframe(convex_db, required_convex_cols, "Competing phases database")
         
         # Create convex phases energy dictionary
         log_info("Creating competing phases energy dictionary...", current_rank=rank)
         convex_phases = create_energy_dictionary(
             convex_db,
-            key_column=args.formula_column_convex,
+            key_column=args.composition_column_convex,
             value_column=args.formE_column_convex
         )
         log_info(f"Competing phases dictionary contains {len(convex_phases)} entries", 
@@ -483,8 +483,8 @@ Examples:
         result_db = calculate_hull_distances_parallel(
             candidates_db,
             convex_phases,
-            formula_column=args.formula_column_compound,
-            formation_energy_column=args.formE_column_compound,
+            formula_column=args.composition_column_input,
+            formation_energy_column=args.formE_column_input,
             output_column=args.out_column
         )
         
