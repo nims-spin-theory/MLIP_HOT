@@ -1,0 +1,18 @@
+# MLIP-HOT: Optimize only
+# Compatible with scripts/MLIP_HOT.py
+
+task: optimize
+model: mattersim
+
+optimize:
+  input: example/example_data.csv
+  output: example/example_result  # directory
+  size: 1
+  rank: 0
+  strain: "0.0"
+  primitive_cell_conversion: false
+  # checkpoint_path: ./fairchem_checkpoints/eqV2_31M_omat.pt
+  # mpi_nproc: 4
+
+# Global model selection (required for optimization; used to auto-pick reference DBs)
+
