@@ -65,6 +65,19 @@ SUPPORTED_MODELS = {
 # Models that support specific patterns
 EQIV2_MODELS = {'eqV2_31M', 'eqV2_86M', 'eqV2_153M'}
 
+def print_mpi_info(rank: int, size: int) -> None:
+    """Print MPI configuration information."""
+    if rank == 0:
+        print(f"MPI Configuration:")
+        print(f"  Total processes: {size}")
+        print(f"  Master rank: 0")
+        if size > 1:
+            print(f"  Worker ranks: 1-{size-1}")
+        else:
+            print("  Running in single-process mode")
+        print()
+
+
 def str_to_2d_array(string: str) -> Optional[np.ndarray]:
     """
     Convert a string representation of a 2D array to a NumPy array.
@@ -326,7 +339,7 @@ def create_calculator(model: str, checkpoint_path: Optional[str] = None) -> Calc
         raise ImportError(f"Could not import calculator for model '{model}': {e}") from e
 
 
-def opt_loop_row(local_data: List, model: str, strain: List[float], symmetrize: bool = False, checkpoint_path: Optional[str] = None) -> List:
+def opt_loop_row(local_data: List, model: str, strain: List[float] = None, symmetrize: bool = False, checkpoint_path: Optional[str] = None) -> List:
     """
     Perform optimization loop on local data structures.
     
@@ -347,8 +360,9 @@ def opt_loop_row(local_data: List, model: str, strain: List[float], symmetrize: 
         try:
             structure, spacegroup_symbol = get_structure(row)
             
-            # Apply strain and re-symmetrize
-            structure.apply_strain(strain)
+            # Apply strain only when provided and non-zero
+            if strain is not None and np.sum(np.abs(strain)) != 0:
+                structure.apply_strain(strain)
             if symmetrize:
                 structure, spacegroup_symbol = symmetrize_structure(structure)
             
@@ -477,10 +491,9 @@ def main():
     parser.add_argument(
         "--strain", 
         type=str, 
-        default="0.0",
+        default=None,
         help="Strain to apply. Can be either a scalar (e.g., '0.01') for isotropic strain "
              "or a 3x3 matrix (e.g., '[[0.01, 0.0, 0.0], [0.0, -0.02, 0.0], [0.0, 0.0, 0.0]]') "
-             "for anisotropic strain. Default is '0.0' (no strain)."
     )
 
     parser.add_argument(
@@ -501,43 +514,87 @@ def main():
     )
 
     args = parser.parse_args()
-
+    try:
+        print_mpi_info(rank, size)
+    except Exception as e:
+        print(f"[ERROR] Failed to initialize MPI: {e}")
+        return
+        
     # Validate checkpoint_path for models that require it
     if ('eqV2' in args.model or 'esen_30m_oam' in args.model) and args.checkpoint_path is None:
         parser.error(f"Model '{args.model}' requires --checkpoint_path argument. "
                     f"Please provide the path to the checkpoint file.")
 
-    # Parse strain argument - convert to float if scalar, numpy array if matrix
-    try:
-        # Try to parse as a matrix first
-        if args.strain.strip().startswith('['):
-            args.strain = np.array(ast.literal_eval(args.strain))
-        else:
-            # Parse as scalar
-            args.strain = float(args.strain)
-    except (ValueError, SyntaxError) as e:
-        raise ValueError(f"Invalid strain format: {args.strain}. Must be a scalar or valid matrix format.") from e
+    # Parse strain argument - convert to float if scalar, numpy array if matrix; None means no strain
+    if args.strain is not None:
+        try:
+            # Try to parse as a matrix first
+            if args.strain.strip().startswith('['):
+                args.strain = np.array(ast.literal_eval(args.strain))
+            else:
+                # Parse as scalar
+                args.strain = float(args.strain)
+        except (ValueError, SyntaxError) as e:
+            raise ValueError(f"Invalid strain format: {args.strain}. Must be a scalar or valid matrix format.") from e
 
     # Load and process database
     if rank==0:
-        print(f"Loading input from {args.input}")
+        print(f"[INFO] Loading input from {args.input}")
     db = pd.read_csv(args.input, index_col=0)
     if rank==0:
-        print(f"Database shape: {db.shape}")
-        print("Columns included in this database: ")
-        print(db.columns.tolist())
+        print(f"[INFO] Database shape: {db.shape}")
+        print("[INFO] Columns included in this database: ")
+        print(f"[INFO] {db.columns.tolist()}")
 
     # Chunk data for this process
     db_chunk = chunk_dataframe(db, args.size, args.rank)
     if rank==0:
-        print(f"This run optimizes the chunk number {args.rank} out of {args.size} chunks. (numbering from 0)")
-        print(f"The size of this chunk  is {db_chunk.shape[0]}.")
-        print("="*40) 
+        print(f"[INFO] This run optimizes the chunk number {args.rank} out of total {args.size} chunks. (numbering from 0)")
+        print(f"[INFO] The size of this chunk  is {db_chunk.shape[0]}.")
+        print("[INFO] " + "="*40)
+
+    # Pre-run information (rank 0)
+    if rank==0:
+        print(f"[INFO] The initial crystal structures are expected in columns 'cell', 'positions', and 'numbers'.")
+        strain_applied = args.strain is not None and np.sum(np.abs(args.strain)) != 0
+        if not strain_applied:
+            print("[INFO] No strain will be applied.")
+        else:
+            print(f"[INFO] The initial crystal structures will be strained by ε: \n{args.strain}")
+            if np.isscalar(args.strain):
+                print(
+                    "[INFO] Isotropic strain configured:\n"
+                    "  L' = L × (1 + ε)\n"
+                    "  where:\n"
+                    "    L  = original lattice matrix (3×3)\n"
+                    "    ε  = scalar strain (float), representing uniform expansion (+) or contraction (−)\n"
+                    "    L' = new lattice matrix after isotropic deformation\n"
+                    "  Effect:\n"
+                    "    → Uniformly scales all lattice vectors by (1 + ε)\n"
+                )
+            else:
+                print(
+                    "[INFO] Anisotropic (general) strain configured:\n"
+                    "  L' = L × (I + ε)\n"
+                    "  where:\n"
+                    "    L  = original lattice matrix (3×3)\n"
+                    "    I  = 3×3 identity matrix (represents no deformation)\n"
+                    "    ε  = 3×3 strain tensor, input by --strain\n"
+                    "    L' = new lattice matrix after applying general strain\n"
+                    "  Effect:\n"
+                    "    → Applies directional and shear deformations to the lattice vectors\n"
+                )
+            print("[INFO] The atom coordinations will be adjusted accordingly.")
+        if args.primitive_cell_conversion:
+            print("[INFO] Structures will be converted to primitive cell by spglib before optimization.")
+        print("[INFO] The initial structures for relaxation (possibly strained or converted to primitive cell) will be written to columns 'initial_cell', 'initial_positions', and 'initial_numbers'.")
+        print("[INFO] Optimized structures will be written to 'optimized_cell', 'optimized_positions', and 'optimized_numbers'.")
+        print("[INFO] Energies will be written to 'Energy (eV/atom)' and formulas to 'optimized_formula'.")
 
     # Distribute data among MPI processes
     local_data = scatter_dataframe(db_chunk)
 
-    print(f"[Process {rank}/{size}] Starting optimization of {len(local_data)} compounds with model {args.model}.")
+    print(f"[INFO] [Process {rank}/{size}] Starting optimization of {len(local_data)} compounds with model {args.model}.")
     local_results = opt_loop_row(local_data, args.model, args.strain, args.primitive_cell_conversion, args.checkpoint_path)
     
     # Gather results from all processes
@@ -545,15 +602,15 @@ def main():
 
     # Process results on root process
     if rank == 0:
-        print("Gathering and saving results...")
+        print("[INFO] Gathering and saving results...")
         # Flatten results
         all_results = []
         for sublist in gathered_results:
             all_results.extend(sublist)
 
         # Update dataframe with results
-        result_columns = ['strained_cell', 'strained_positions', 'strained_numbers', 
-                          'optimized_formula', 'optimized_cell', 'optimized_positions', 'optimized_numbers', 'Energy (eV/atom)']
+        result_columns = ['initial_cell', 'initial_positions', 'initial_numbers', 
+                  'optimized_formula', 'optimized_cell', 'optimized_positions', 'optimized_numbers', 'Energy (eV/atom)']
         db_chunk[result_columns] = all_results
 
         # Save results
@@ -566,51 +623,7 @@ def main():
             output_file = os.path.join(args.output, f'{db_name}_{args.size}_{args.rank}.csv')
         db_chunk.to_csv(output_file)
 
-        print("="*40) 
-        print(f"The initial crystal structures are loaded from columns 'cell', 'positions', and 'numbers'. ")
-
-        if np.sum(np.abs(args.strain))==0: 
-            print("No strain applied. The initial structures are passed to optimization procedure directly.")
-        else: 
-            print(f"The initial crystal structures are strained by ε: \n{args.strain}")
-            
-            if np.isscalar(args.strain):
-                print(
-                    "Isotropic strain applied:\n"
-                    "  L' = L × (1 + ε)\n"
-                    "  where:\n"
-                    "    L  = original lattice matrix (3×3)\n"
-                    "    ε  = scalar strain (float), representing uniform expansion (+) or contraction (−)\n"
-                    "    L' = new lattice matrix after isotropic deformation\n"
-                    "  Effect:\n"
-                    "    → Uniformly scales all lattice vectors by (1 + ε)\n"
-                )
-            else:
-                print(
-                    "Anisotropic (general) strain applied:\n"
-                    "  L' = L × (I + ε)\n"
-                    "  where:\n"
-                    "    L  = original lattice matrix (3×3)\n"
-                    "    I  = 3×3 identity matrix (represents no deformation)\n"
-                    "    ε  = 3×3 strain tensor, input by --strain\n"
-                    "    L' = new lattice matrix after applying general strain\n"
-                    "  Effect:\n"
-                    "    → Applies directional and shear deformations to the lattice vectors\n"
-                )
-            print("The atom coordinations are adjusted accordingly.")
-            print("The strained structures are written to columns names 'strained_cell', 'strained_positions', and 'strained_numbers'.")
-            print("The strained structures are passed to optimization procedure.")
-
-        if args.primitive_cell_conversion:
-            print("The structures are converted to primitive cell by spglib before optimization.")
-
-        print('The optimized structures are written to columns names \'optimized_cell\', \'optimized_positions\', and \'optimized_numbers\'.')
-        print('The energies of optimized structures are written to columns names \'Energy (eV/atom)\'.')
-        print('The formula of optimized structures are written to columns names \'optimized_formula\'.')
-
-
-        print(f"Results saved to {output_file}")
-
+        print(f"[INFO] Results saved to {output_file}")
 
 if __name__ == "__main__":
     main()

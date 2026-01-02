@@ -43,7 +43,7 @@ YAML config schema (minimal):
         database_elements: "../example/terminal_elements_mp.csv"
         composition_column_input: "optimized_formula"
         composition_column_elements: "composition"
-            form_energy_column_input: "Energy (eV/atom)"
+        energy_column_input: "Energy (eV/atom)"
         energy_column_elements: "Energy (eV/atom)"
         out_column: "Formation Energy (eV/atom)"
     
@@ -305,8 +305,8 @@ def run_form(cfg: Dict[str, Any], print_commands: bool, dry_run: bool, base_dir:
         cmd += ["--composition_column_input", str(cfg.get("composition_column_input"))]
     if cfg.get("composition_column_elements"):
         cmd += ["--composition_column_elements", str(cfg.get("composition_column_elements"))]
-    if cfg.get("form_energy_column_input"):
-        cmd += ["--form_energy_column_input", str(cfg.get("form_energy_column_input"))]
+    if cfg.get("energy_column_input"):
+        cmd += ["--energy_column_input", str(cfg.get("energy_column_input"))]
     if cfg.get("energy_column_elements"):
         cmd += ["--energy_column_elements", str(cfg.get("energy_column_elements"))]
     if cfg.get("out_column"):
@@ -367,9 +367,9 @@ def main() -> int:
     # Skip feature removed: tasks always run per `task` selection or full pipeline
 
     # Global overrides
-    parser.add_argument("--task", choices=["pipeline", "optimize", "form", "hull"], required=True, help="Override task selection")
+    parser.add_argument("--task", choices=["pipeline", "optimize", "form", "hull"], default=None, help="Override task selection (defaults to config file value or 'pipeline')")
     parser.add_argument("--mpi_nproc", dest="mpi_nproc", type=int, help="Global MPI process count (MPI enabled when nproc>1)")
-    parser.add_argument("--model", dest="global_model", type=str, required=True,help="Global model name used for reference DB selection; also default for optimize.model")
+    parser.add_argument("--model", dest="global_model", type=str, default=None, help="Global model name used for reference DB selection; also default for optimize.model")
 
     # Optimize overrides
     opt_grp = parser.add_argument_group("optimize overrides")
@@ -389,8 +389,8 @@ def main() -> int:
     form_grp.add_argument("--form.output", dest="form_output", type=str, help="Output CSV path for formation energies")
     form_grp.add_argument("--form.composition_column_input", "--form.composition_column_compound", "--form.compound_column_compound", "--form.formula_column_compound", dest="form_composition_column_input", type=str, help="Input composition column name")
     form_grp.add_argument("--form.composition_column_elements", "--form.compound_column_elements", "--form.formula_column_elements", dest="form_composition_column_elements", type=str, help="Terminal element column name")
-    form_grp.add_argument("--form.form_energy_column_input", "--form.energy_column_compound", dest="form_form_energy_column_input", type=str, help="Energy column name in input database")
-    form_grp.add_argument("--form.energy_column_elements", dest="form_energy_column_elements", type=str, help="Energy column name in elements database")
+    form_grp.add_argument("--form.energy_column_input", "--form.energy_column_compound", dest="energy_column_input", type=str, help="Energy column name in input database")
+    form_grp.add_argument("--form.energy_column_elements", dest="energy_column_elements", type=str, help="Energy column name in elements database")
     form_grp.add_argument("--form.out_column", dest="form_out_column", type=str, help="Output column name for formation energy")
 
     # Hull overrides
@@ -428,9 +428,9 @@ def main() -> int:
         global_model = str(args.global_model)
 
     # Normalize sections
-    optimize_cfg = dict(cfg.get("optimize", {}))
-    form_cfg = dict(cfg.get("form", {}))
-    hull_cfg = dict(cfg.get("hull", {}))
+    optimize_cfg = dict(cfg.get("optimize") or {})
+    form_cfg = dict(cfg.get("form") or {})
+    hull_cfg = dict(cfg.get("hull") or {})
 
     # Backwards compatibility: map older keys to composition_* if new keys missing
     if "composition_column_input" not in form_cfg:
@@ -446,8 +446,8 @@ def main() -> int:
         elif "formula_column_elements" in form_cfg:
             form_cfg["composition_column_elements"] = form_cfg["formula_column_elements"]
     # Normalize energy column name for form stage
-    if "form_energy_column_input" not in form_cfg and "energy_column_compound" in form_cfg:
-        form_cfg["form_energy_column_input"] = form_cfg["energy_column_compound"]
+    if "energy_column_input" not in form_cfg and "energy_column_compound" in form_cfg:
+        form_cfg["energy_column_input"] = form_cfg["energy_column_compound"]
     if "composition_column_input" not in hull_cfg:
         if "composition_column_compound" in hull_cfg:
             hull_cfg["composition_column_input"] = hull_cfg["composition_column_compound"]
@@ -510,10 +510,10 @@ def main() -> int:
         form_cfg["composition_column_input"] = args.form_composition_column_input
     if args.form_composition_column_elements:
         form_cfg["composition_column_elements"] = args.form_composition_column_elements
-    if args.form_form_energy_column_input:
-        form_cfg["form_energy_column_input"] = args.form_form_energy_column_input
-    if args.form_energy_column_elements:
-        form_cfg["energy_column_elements"] = args.form_energy_column_elements
+    if args.energy_column_input:   
+        form_cfg["energy_column_input"] = args.energy_column_input
+    if args.energy_column_elements:
+        form_cfg["energy_column_elements"] = args.energy_column_elements
     if args.form_out_column:
         form_cfg["out_column"] = args.form_out_column
 
@@ -539,12 +539,27 @@ def main() -> int:
 
     # Execute according to task
     if task == "optimize":
+        print("\n" + "#" * 60)
+        print("#" + " " * 58 + "#")
+        print("#" + " RUNNING TASK: OPTIMIZE ".center(58) + "#")
+        print("#" + " " * 58 + "#")
+        print("#" * 60 + "\n")
         return run_optimize(optimize_cfg, global_mpi_nproc, args.print_commands, args.dry_run, base_dir=config_dir)
 
     if task == "form":
+        print("\n" + "#" * 60)
+        print("#" + " " * 58 + "#")
+        print("#" + " RUNNING TASK: FORMATION ENERGY ".center(58) + "#")
+        print("#" + " " * 58 + "#")
+        print("#" * 60 + "\n")
         return run_form(form_cfg, args.print_commands, args.dry_run, base_dir=config_dir)
 
     if task == "hull":
+        print("\n" + "#" * 60)
+        print("#" + " " * 58 + "#")
+        print("#" + " RUNNING TASK: CONVEX HULL DISTANCE ".center(58) + "#")
+        print("#" + " " * 58 + "#")
+        print("#" * 60 + "\n")
         return run_hull(hull_cfg, global_mpi_nproc, args.print_commands, args.dry_run, base_dir=config_dir)
 
     if task == "pipeline":
@@ -566,6 +581,11 @@ def main() -> int:
             )
 
         # Run sequentially: optimize -> form -> hull
+        print("\n" + "#" * 60)
+        print("#" + " " * 58 + "#")
+        print("#" + " RUNNING TASK: OPTIMIZE ".center(58) + "#")
+        print("#" + " " * 58 + "#")
+        print("#" * 60 + "\n")
         rc = run_optimize(optimize_cfg, global_mpi_nproc, args.print_commands, args.dry_run, base_dir=config_dir)
         if rc != 0:
             print(f"[ERROR] Optimize stage failed with exit code {rc}")
@@ -590,6 +610,11 @@ def main() -> int:
             if args.print_commands:
                 print("[WARN] Pipeline: Could not determine optimize output; form.input unchanged")
 
+        print("\n" + "#" * 60)
+        print("#" + " " * 58 + "#")
+        print("#" + " RUNNING TASK: FORMATION ENERGY ".center(58) + "#")
+        print("#" + " " * 58 + "#")
+        print("#" * 60 + "\n")
         rc = run_form(form_cfg, args.print_commands, args.dry_run, base_dir=config_dir)
         if rc != 0:
             print(f"[ERROR] Form stage failed with exit code {rc}")
@@ -609,6 +634,11 @@ def main() -> int:
                     print(f"[INFO] Auto-set hull.database_convex = {hull_cfg.get('database_convex')}")
                 print(f"[INFO] Pipeline: Set hull.output = {derived_hull_out}")
 
+        print("\n" + "#" * 60)
+        print("#" + " " * 58 + "#")
+        print("#" + " RUNNING TASK: CONVEX HULL DISTANCE ".center(58) + "#")
+        print("#" + " " * 58 + "#")
+        print("#" * 60 + "\n")
         rc = run_hull(hull_cfg, global_mpi_nproc, args.print_commands, args.dry_run, base_dir=config_dir)
         if rc != 0:
             print(f"[ERROR] Hull stage failed with exit code {rc}")

@@ -8,16 +8,17 @@ https://arxiv.org/abs/2508.20556. If you use or extend MLIP-HOT, please cite thi
 
 ## Overview
 
-This repository contains Python scripts and examples for:
+This code can do:
 - **Structural Optimization**: Optimize crystal structures using various MLIPs (CHGNet, MatterSim, eSEN-30M-OAM, etc.)
 - **Formation Energy Calculation**: Calculate formation energies using MLIP
 - **Convex Hull Analysis**: Calculate distance to convex hull using MLIP
 
 This repository also contains useful scripts for:
 - **HTP Structure Generation**: Generate structures for screening compositions from a POSCAR or CIF input
-- **Convex Hull Compounds**: Retrieve convex hull compounds from OQMD and the Materials Project via API
+- **Retrieve Convex Hull Info**: Retrieve convex hull compounds from OQMD and the Materials Project via API
 - **Phase Diagram Plot**: Generate phase diagrams for selected compounds
-
+- **Determine Global Minimum**: Determine the global minimum from several local minima.
+  
 #### Key Features
 
 - **MPI Parallelization**: Efficient processing of large datasets through distributed computing
@@ -26,6 +27,7 @@ This repository also contains useful scripts for:
 - **Formation Energy Calculations**: Compute formation energies using MLIP-derived reference energies
 - **Convex Hull Distance Analysis**: Compute distance to convex hull using MLIP-derived reference energies
 - **High-Quality Reference Structures**: Utilize DFT-optimized structures from OQMD as initial configurations for reference energy calculations
+- **Relax from different initial structures perturbed strain**: Apply strain to structures before optimization is started.
 - **Primitive Cell Conversion**: The structure can be converted to primitive cell before optimization to improve efficiency
 - **No GPU device is required** This toolkit applies pre-trained MLIPs and can run efficiently on CPU.
 
@@ -76,7 +78,7 @@ Once conda is installed, you can create separate environments for each MLIP mode
 
 ## Usage
 
-MLIP-HOT provides a single entrypoint (`scripts/MLIP_HOT.py`) to run the full pipeline (Structure optimization → Formation energy → Distance above convex hull) or any individual stage using YAML configs. Relative paths in the YAML and CLI are resolved against the config file’s directory, so you can execute from any folder that contains your config and input CSVs.
+MLIP-HOT provides a single entrypoint (`scripts/MLIP_HOT.py`) to run the full pipeline (Structure optimization → Formation energy → Distance above convex hull) or any individual stage using YAML configs. 
 
 This tutorial covers:
 

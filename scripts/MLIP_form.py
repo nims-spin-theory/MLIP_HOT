@@ -20,7 +20,7 @@ Example usage:
     Custom column names:
         python MLIP_form.py -i compounds.csv -e terminal.csv -o results.csv \
             --composition_column_input "formula" \
-            --form_energy_column_input "energy_per_atom" \
+            --energy_column_input "energy_per_atom" \
             --out_column "formation_energy"
     
     With specific terminal element column:
@@ -251,7 +251,7 @@ def main():
                        help="Column name containing chemical formulas in input database")
     parser.add_argument("--composition_column_elements", type=str, default="composition",
                        help="Column name containing element symbols in terminal elements database")
-    parser.add_argument("--form_energy_column_input", "--energy_column_compound", type=str, default="Energy (eV/atom)",
+    parser.add_argument("--energy_column_input", "--energy_column_compound", type=str, default="Energy (eV/atom)",
                        help="Column name containing ML energies in the input compounds database")
     parser.add_argument("--energy_column_elements", type=str, default="Energy (eV/atom)",
                        help="Column name containing ML energies in the terminal elements database")
@@ -260,6 +260,18 @@ def main():
 
     args = parser.parse_args()
     
+    # Pre-flight info
+    log_info(f"Compound input file: {args.input}")
+    log_info(f"Terminal elements file: {args.database_elements}")
+    log_info(f"Output file: {args.output}")
+    log_info(f"From input file, composition and energy are loaded from columns:")
+    log_info(f"    '{args.composition_column_input}',{args.energy_column_input}")
+    log_info(f"From elements file, composition and energy are loaded from columns:")
+    log_info(f"    '{args.composition_column_elements}',{args.energy_column_elements}")
+    log_info(f"The calculated formation energy will be stored in column:")
+    log_info(f"    '{args.out_column}'")
+
+
     try:
         log_info("Loading terminal elements database...")
         if not os.path.exists(args.database_elements):
@@ -289,7 +301,7 @@ def main():
         # Validate compound database
         validate_dataframe(
             compound_db,
-            [args.composition_column_input, args.form_energy_column_input],
+            [args.composition_column_input, args.energy_column_input],
             "Compound database"
         )
         
@@ -298,7 +310,7 @@ def main():
             compound_db, 
             terminal_energies,
             formula_column=args.composition_column_input,
-            energy_column=args.form_energy_column_input,
+            energy_column=args.energy_column_input,
             output_column=args.out_column
         )
         

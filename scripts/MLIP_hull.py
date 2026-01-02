@@ -438,12 +438,20 @@ Examples:
     
     args = parser.parse_args()
     
+    # Pre-flight info
+    log_info(f"Compound input file: {args.input}", current_rank=rank)
+    log_info(f"Convex hull file: {args.database_convex}", current_rank=rank)
+    log_info(f"Output file: {args.output}", current_rank=rank)
+    log_info(f"From input file, composition and formation energy are loaded from columns:", current_rank=rank)
+    log_info(f"    '{args.composition_column_input}',{args.formE_column_input}", current_rank=rank)
+    log_info(f"From elements file, composition and energy are loaded from columns:", current_rank=rank)
+    log_info(f"    '{args.composition_column_convex}',{args.formE_column_convex}", current_rank=rank)
+    log_info(f"The calculated formation energy will be stored in column:", current_rank=rank)
+    log_info(f"    '{args.out_column}'", current_rank=rank)
+
     try:
         # Print MPI configuration
         print_mpi_info(rank, size)
-        
-        # Load and validate candidate compounds database
-        log_info(f"Loading candidate compounds from {args.input}...", current_rank=rank)
         
         if not os.path.exists(args.input):
             raise FileNotFoundError(f"Candidate database file not found: {args.input}")
@@ -455,14 +463,12 @@ Examples:
         required_candidate_cols = [args.composition_column_input, args.formE_column_input]
         validate_dataframe(candidates_db, required_candidate_cols, "Candidate compounds database")
         
-        # Load and validate convex phases database
-        log_info(f"Loading competing phases from {args.database_convex}...", current_rank=rank)
         
         if not os.path.exists(args.database_convex):
             raise FileNotFoundError(f"Convex phases database file not found: {args.database_convex}")
         
         convex_db = pd.read_csv(args.database_convex, index_col=0)
-        log_info(f"Loaded {len(convex_db)} competing phases", current_rank=rank)
+        log_info(f"Loaded {len(convex_db)} competing phases on convex hull", current_rank=rank)
         
         # Validate convex phases database
         required_convex_cols = [args.composition_column_convex, args.formE_column_convex]
