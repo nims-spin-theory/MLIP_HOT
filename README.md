@@ -1,3 +1,5 @@
+[中文](README_zh.md) [日本語](README_ja.md)
+
 # MLIP-based High-throughput Optimization and Thermodynamics (MLIP-HOT)
 
 A comprehensive toolkit for Machine Learning Interatomic Potential (MLIP) based calculations, including structural optimization, formation energy evaluation and convex hull analysis. This toolkit focuses on building a high-throughput pipeline for computational material discovery. Key advantages of this toolkit are its ease of use and high performance.
@@ -15,7 +17,6 @@ This code can do:
 
 This repository also contains useful scripts for:
 - **HTP Structure Generation**: Generate structures for screening compositions from a POSCAR or CIF input
-- **Retrieve Convex Hull Info**: Retrieve convex hull compounds from OQMD and the Materials Project via API
 - **Phase Diagram Plot**: Generate phase diagrams for selected compounds
 - **Determine Global Minimum**: Determine the global minimum from several local minima.
   
@@ -80,7 +81,7 @@ Once conda is installed, you can create separate environments for each MLIP mode
 
 MLIP-HOT provides a single entrypoint (`scripts/MLIP_HOT.py`) to run the full pipeline (Structure optimization → Formation energy → Distance above convex hull) or any individual stage using YAML configs. 
 
-This tutorial covers:
+We show examples covering:
 
 1. Quick Start: A simple example running all three tasks at once.
 2. Run a single task
