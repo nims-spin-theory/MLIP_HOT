@@ -189,7 +189,8 @@ def main():
     parser.add_argument("--energy-column", type=str, default="Energy (eV/atom)",
                        help="Name of the column containing energy values")
     parser.add_argument("--group-by-column", type=str, default=None,
-                       help="Column name used to identify the compound, i.e. rows with same value are compared to determine the ground state  (default: use index)")
+                       help="Column name used to identify the compound (default: use index) "
+                            "i.e. entries with same value are regarded as the same compound.")
     
     # Optional features
     parser.add_argument("--labels", nargs='+', type=str,

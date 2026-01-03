@@ -1,0 +1,22 @@
+# MLIP-HOT Pipeline Config
+# Compatible with scripts/MLIP_HOT.py
+
+# Select task: pipeline | optimize | form | hull
+task: optimize
+# Select interatomic potential model
+model: mattersim
+
+# Optional global MPI settings (per-task overrides supported)
+mpi_nproc: 10
+
+# Stage 1: Optimization
+optimize:
+  input:  ./example.csv         # input csv file
+  output: example_result_task2  # directory where results will be written
+# the setting below are optional; default values will be used if not provided
+#  size:                         # Number of chunks for separate jobs
+#  rank:                         # Chunk number for this job
+#  strain:                       # Strain applied to structure before optimization
+                                 # (scalar or 3x3 matrix string)
+#  primitive_cell_conversion:    # Whether to convert to primitive cell before optimization
+#  checkpoint_path:              # Checkpoint path if MLIP requires (e.g. eqV2,esen)

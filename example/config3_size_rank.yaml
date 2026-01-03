@@ -1,0 +1,9 @@
+# MLIP-HOT Pipeline Config
+# Compatible with scripts/MLIP_HOT.py
+
+task: pipeline
+model: mattersim
+mpi_nproc: 5
+optimize:
+  input:  ./example.csv         # input csv file
+  output: example_result_task3  # directory where results will be written

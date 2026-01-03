@@ -17,7 +17,6 @@ This code can do:
 
 This repository also contains useful scripts for:
 - **HTP Structure Generation**: Generate structures for screening compositions from a POSCAR or CIF input
-- **Phase Diagram Plot**: Generate phase diagrams for selected compounds
 - **Determine Global Minimum**: Determine the global minimum from several local minima.
   
 #### Key Features
@@ -111,65 +110,76 @@ An example containing 100 compounds is included in the `example` directory.  Thi
 conda activate MLIP_mattersim 
 
 MLIP_HOT=../scripts/MLIP_HOT.py
-python3 $MLIP_HOT -c pipeline.yaml 
+python $MLIP_HOT -c pipeline.yaml 
 ```
 If the example folder is copied to another place or the code is used in real practice, please change `MLIP_HOT=../scripts/MLIP_HOT.py` to the absolute path to `MLIP_HOT.py` on your computer.
 
-> Quick Fix
-> - If error message about missing module, please install it.
-> - For example if module `pyyaml` is missing, please do `pip install pyyaml`
+> 💡 Quick Fix: If meet error message about missing module, please install it. For example if module `pyyaml` is missing, please do `pip install pyyaml`.
 
 
 All settings are controlled by the config file `pipeline.yaml`. Now, let's explain the meaning in this config file. 
 
 ```yaml
 # Select task: pipeline | optimize | form | hull
-task: pipeline 
-# Select MLIP model
+task: pipeline
+# Select interatomic potential model
 model: mattersim
-# Optional global MPI settings, set nproc>1 to enable MPI
-mpi_nproc: 4
+# Optional global MPI settings (per-task overrides supported)
+mpi_nproc: 10
+
 # Stage 1: Optimization
 optimize:
-    input: ./example_data.csv # the input csv file
-    output: ./example_result  # the output directory 
-# Stage 2: Formation energy; use default setting
+  input:  ./example.csv         # input csv file
+  output: example_result_task1  # directory where results will be written
+# Stage 2: Formation energy; use default settings
 form:
-# Stage 3: Hull distance; use default setting
+# Stage 3: Hull distance; use default settings
 hull:
 ```
 
-The `input` file must include the columns `cell`, `positions`, and `numbers`, which define the initial crystal structure for relaxation. See the example input CSV for format requirements. Outputs are appended as new columns and all original input columns are preserved. We recommend adding identifier columns such as `formula`, `composition`, and `ID` in the input file.
+The `input` file must include the columns `cell`, `positions`, and `numbers`, which define the crystal structure for relaxation. See the example input CSV for format requirements. We also provide a script which generates input csv file from POSCAR or CIF file (see example 5). 
 
-The toolkit writes the following output columns: `optimized_formula`, `optimized_cell`, `optimized_positions`, `optimized_numbers`, `Energy (eV/atom)`, `Formation Energy (eV/atom)`, and `Hull Distance (eV/atom)`. Progress and details are printed during execution.
+The toolkit writes the following output columns: `optimized_formula`, `optimized_cell`, `optimized_positions`, `optimized_numbers`, `Energy (eV/atom)`, `Formation Energy (eV/atom)`, and `Hull Distance (eV/atom)`. Progress and details are printed during execution. Outputs are appended as new columns and all original columns are preserved. We recommend including identifier columns such as `formula`, `composition`, and `ID` in the input file.
 
+The precomputed results and results obtained using DFT are included in `example/results` , which you can compare with.
 
-The job can also be done using Command Line Interface (CLI)  (no config file) with dotted flags; an equivalent CLI is:
+The job can also be set using Command Line Interface (CLI)  (no config file); an equivalent CLI is:
 ```bash
 # From the example folder
-python3 $MLIP_HOT \
+conda activate MLIP_mattersim 
+MLIP_HOT=../scripts/MLIP_HOT.py
+
+python $MLIP_HOT \
     --task pipeline \
     --model mattersim \
-    --mpi_nproc 4 \
-    --opt.input ./example_data.csv \
-    --opt.output ./example_result 
+    --mpi_nproc 10 \
+    --opt.input ./example.csv \
+    --opt.output ./example_result_task1 
 ```
 
 The optimized structures, formation energies, and hull distances are written to files in `example_result`.
 
-> Tip
-> - You can use both a config file and CLI overrides; CLI values overwrite config values.
+>  💡Tip: You can use both a config file and CLI; CLI values overwrite config values.
 
 ### 2. Run a single task
 
-Each stage (optimize/formation energy/hull distance) can be done separately. For example, to perform a single formation energy or hull distance calculation, the following config can be used.
+Each stage (optimize/formation energy/hull distance) can be done separately. Example configs are:
+
+```yaml
+task: optimize
+model: mattersim
+mpi_nproc: 10
+optimize:
+  input:  ./example.csv         # input csv file
+  output: example_result_task2  # directory where results will be written
+```
 
 ```yaml
 task: form 
 model: mattersim
 form:
-    input:  ./example_data.csv
-    output: ./example_data_formation_energy.csv
+    input:  example_result_task1/structure_optimization_result.csv
+    output: example_result_task2/form_result.csv
 ```
 
 ```yaml
@@ -177,126 +187,128 @@ task: hull
 model: mattersim
 mpi_nproc: 4
 hull:
-    input:  ./example_data_formation_energy.csv
-    output: ./example_data_hull_distance.csv
+  input:  example_result_task2/form_result.csv
+  output: example_result_task2/hull_result.csv
 ```
-The equivalent CLI are:
+
+These example config files are also included in the `example` folder which can be executed using:
+
+```bash
+conda activate MLIP_mattersim 
+MLIP_HOT=../scripts/MLIP_HOT.py
+
+python $MLIP_HOT -c config2_single_task_optimize.yaml
+python $MLIP_HOT -c config2_single_task_form.yaml
+python $MLIP_HOT -c config2_single_task_hull.yaml
+```  
+
+The same task can also be performed using equivalent CLI:
 
 ``` bash
-python3 $MLIP_HOT \
+python $MLIP_HOT \
+    --task optimize \
+    --model mattersim \
+    --mpi_nproc 4 \
+    --optimize.input  ./example.csv \
+    --optimize.output example_result_task2
+```
+
+``` bash
+python $MLIP_HOT \
     --task form \
     --model mattersim \
-    --form.input  ./example_data.csv \
-    --form.output ./example_data_formation_energy.csv
+    --form.input  example_result_task1/structure_optimization_result.csv \
+    --form.output example_result_task2/form_result.csv
 ```
 
 ``` bash
-python3 $MLIP_HOT \
+python $MLIP_HOT \
     --task hull \
     --model mattersim \
     --mpi_nproc 4 \
-    --hull.input  ./example_data_formation_energy.csv \
-    --hull.output ./example_data_hull_distance.csv
+    --hull.input  example_result_task2/form_result.csv \
+    --hull.output example_result_task2/hull_result.csv
 ```
 
 ### 3. Separate the job across multiple nodes for efficiency.
-In high-throughput research, the number of screened compounds is often very large. It is more efficient to divide the database into several chunks and run optimization of each chunk separately on multiple computation nodes. For example, divide the database into 20 chunks, run each chunk on one computer, and concatenate all results at the end. 
+In high-throughput research, the number of screened compounds is often very large. In `pipeline` or `optimize` task, it is more efficient to divide the input database into several chunks and run each chunk separately on multiple computation nodes. For example, divide the database into 20 chunks, run each chunk on one computer, and concatenate all results at the end. 
 
-This is controlled by the `size` and `rank` flags: `size` specifies the number of chunks to generate, and `rank` specifies which chunk to process in the current calculation.
+This can be performed using  `optimize.size` and `optimize.rank` flags: `size` specifies the number of chunks to generate, and `rank` specifies which chunk to process in the current calculation (option is $0$ to $N_{size}-1$).
 
-```yaml
-# Select task: pipeline | optimize | form | hull
-task: pipeline 
-# Select MLIP model
-model: mattersim
-# Optional global MPI settings, set nproc>1 to enable MPI
-mpi_nproc: 4
-# Stage 1: Optimization
-optimize:
-    input: ./example_data.csv # the input csv file
-    output: ./example_result  # the output directory 
-    size: 4 # the number of chunks 
-    rank: 0 # chunk number is from 0 to size -1
-# Stage 2: Formation energy; use default setting
-form:
-# Stage 3: Hull distance; use default setting
-hull:
+An example using 3 chucks are included in `example`: 
+
+```bash
+conda activate MLIP_mattersim 
+MLIP_HOT=../scripts/MLIP_HOT.py
+
+python $MLIP_HOT -c config3_size_rank.yaml --optimize.size 3 --optimize.rank 0
+python $MLIP_HOT -c config3_size_rank.yaml --optimize.size 3 --optimize.rank 1
+python $MLIP_HOT -c config3_size_rank.yaml --optimize.size 3 --optimize.rank 2
 ```
+Please note that the config file is same as example 1. Just adding two flags in CLI.
 
- After all chunks are calculated, results can be concatenated using `concat_csv.py`.
-
+After all chunks are calculated, results can be concatenated using script `../script/concat_csv.py`.
 ```bash
 # Concatenate results from multiple chunks
 python ../scripts/concat_csv.py \
-    -f "./example_result" \
-    -p "structure_optimization_result_*.csv" \
-    -o example_data_structure_optimization_result.csv
+    -f "./example_result_task3" \
+    -p "hull_distance_*.csv" \
+    -o "example_result_task3/concat_result.csv"
 
-# Flags:
-#   -f: Folder path containing CSV files to concatenate
-#   -p, --pattern: Glob pattern to match specific files (e.g., "*.csv", "data_*.csv")
-#   -o, --output: Output CSV filename for concatenated results
+#   -f, --folder:  Folder path containing CSV files to concatenate
+#   -p, --pattern: Glob pattern to match files for concatenation 
+#                  (e.g., "structure_optimization_result_*.csv", "hull_distance_*.csv")
+#   -o, --output:  Output CSV filename for concatenated results
 ```
+The script can concatenate any files with names following pattern `XX_{size}_{rank}.csv`.
+ `concat_csv.py` prints the names of files concatenated and identifies any incomplete chunks. 
 
-The script `concat_csv.py` also prints the names of files for concatenation and identifies any incomplete chunks. For more features of this script, please run `python ../scripts/concat_csv.py -h`.
 
-> Tip
-
-> - The script `concat_csv.py` works for output of `pipeline` task or `optimize` task.
+> 💡 Tip: The script `concat_csv.py` works for output of `pipeline` task and `optimize` task.
 
 ### 4. Determine the global minimum using multiple initial structures.
-
-Starting from different initial structures, optimization may converge to distinct local minima with different energies, as in DFT-based optimization. The ground state is identified by comparing these minima and selecting the lowest-energy structure.
+A compound might have several local minima, and only the global minimum is the true ground state. In such compound, different initial structures can relax to distinct local minima with different energies. The ground state is identified by comparing these minima and selecting the lowest-energy structure. The same situation also happens in DFT-based optimization.
 
 One way to do this is preparing multiple CSV files with different initial structures and running structure optimization on each. 
 
-The toolkit can also apply strain perturbations before optimization to explore different initial structural configurations using the `strain` flag.
+Another way is to apply different strains to the structure to generate different initial structures before relaxation. This code can do this easily using the `strain` flag. The strain can be either a scalar (Isotropic strain) or 3x3 matrix (Anisotropic strain). The generated structures before relaxation are also written to output.
 
-Example config files:
+We provide a simple example doing this:
 
-```yaml
-# Isotropic strain
-task: pipeline
-model: mattersim
-mpi_nproc: 4
-optimize:
-    input: ./example_data.csv
-    output: example_result_isotropic
-    strain: 0.1
+```bash
+MLIP_HOT=/Users/xiaoenda/WORK/y_git_repo/MLIP_HOT/scripts/MLIP_HOT.py   
+python $MLIP_HOT -c config4_strain.yaml --optimize.strain "0.1" --optimize.output example_result_task4/strain1
+
+MLIP_HOT=/Users/xiaoenda/WORK/y_git_repo/MLIP_HOT/scripts/MLIP_HOT.py   
+python $MLIP_HOT -c config4_strain.yaml --optimize.strain "[[0.1, 0.1, 0.0], [0.1, -0.1, 0.0], [0.0, -0.1, 0.0]]" --optimize.output example_result_task4/strain2
 ```
+> 💡 Tip: This feature can be combined with `size` and `rank` demonstrated previously.
+> i.e. For each strain, use `size` and `rank` to divide input to several chunks and do concatenation at the end.
 
-```yaml
-# Anisotropic strain (3x3 matrix)
-task: pipeline
-model: mattersim
-mpi_nproc: 4
-optimize:
-    input: ./example_data.csv
-    output: example_result_anisotropic
-    strain: [[0.1, 0.1, 0.0], [0.1, -0.1, 0.0], [0.0, -0.1, 0.0]]
-```
- The strained structures are stored in columns `strained_cell`, `strained_positions`, and `strained_numbers`. 
 
-The global minimum can be identified using the script `find_global_minimum.py`.
+After all calculations are finished, the global minimum can be identified using the script `find_global_minimum.py`.
 
 ```bash
 # Find global minimum energies across multiple result files
-python ../scripts/find_global_minimum.py \
-    -i example_data_result_test1.csv \
-       example_data_result_test2.csv \
-    -o example_data_result_global_min.csv \
-    --labels composition
+python  /Users/xiaoenda/WORK/y_git_repo/MLIP_HOT/scripts/find_global_minimum.py \
+    -i example_result_task4/strain1/hull_distance.csv \
+       example_result_task4/strain2/hull_distance.csv \
+    -o example_result_task4/global_min.csv \
+    --energy-column "Energy (eV/atom)" \
+    --group-by-column "composition" 
+
 # Flags:
-#   -i, --input: Multiple input CSV files to compare (space-separated list)
-#   -o, --output: Output file containing structures with globally minimum energies
-#   --labels: Optional custom labels for each input file (order matches input files)
+#   -i, --input:       Multiple input CSV files to compare (space-separated list)
+#   -o, --output:      Output file containing ground state structures
+#   --energy-column:   Name of the column containing energy values (default: Energy (eV/atom))
+#   --group-by-column: Column name used to identify the compound, (default: use index) 
+#                      i.e. entries with same value are regarded as the same compound.
 ```
+
 For more features of this script, please run `python ../scripts/find_global_minimum.py -h`.
 
-> Tip
-> - This feature can be combined with `size` and `rank` demonstrated previously.
-
-
+> 💡 Tip: This script works for output of pipeline, optimize, form, and hull task.
+> 
 ### 5. Generate screening structures from POSCAR or CIF
 
 

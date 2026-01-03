@@ -1,0 +1,23 @@
+# MLIP-HOT distance above convex hull Config
+# Compatible with scripts/MLIP_HOT.py
+
+# Select task: pipeline | optimize | form | hull
+task: hull
+# Select interatomic potential model
+model: mattersim
+# optional, MPI process count 
+mpi_nproc: 4
+
+# setting for formation energy calculation
+hull:
+  input:  example_result_task2/form_result.csv
+  output: example_result_task2/hull_result.csv
+
+# the setting below are optional; default values will be used if not provided
+#  database_convex:              #csv file with reference energies for competing phases on convex hull
+#  composition_column_input:     #column name for composition in input file
+#  composition_column_convex:    #column name for composition in convex hull file
+#  formE_column_input:           #column name for energy in input file
+#  formE_column_convex:          #column name for energy in convex hull file
+#  out_column:                   #column name for resulting hull distance in output file
+

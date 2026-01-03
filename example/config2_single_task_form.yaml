@@ -1,0 +1,21 @@
+# MLIP-HOT formation energy Config
+# Compatible with scripts/MLIP_HOT.py
+
+# Select task: pipeline | optimize | form | hull
+task: form
+# Select interatomic potential model
+model: mattersim
+
+# setting for formation energy calculation
+form:
+  input:  example_result_task2/structure_optimization_result.csv
+  output: example_result_task2/form_result.csv
+
+# the setting below are optional; default values will be used if not provided
+#  database_elements:            #csv file with reference energies for elements
+#  composition_column_input:     #column name for composition in input file
+#  composition_column_elements:  #column name for composition in elements file
+#  energy_column_input:          #column name for energy in input file
+#  energy_column_elements:       #column name for energy in elements file
+#  out_column:                   #column name for resulting formation energy in output file
+

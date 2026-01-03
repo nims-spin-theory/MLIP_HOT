@@ -1,24 +1,22 @@
+[English](README.md) [中文](README_zh.md)
+
 # 機械学習原子間ポテンシャル（MLIP）に基づく高スループット最適化・熱力学ツールキット（MLIP-HOT）
-
 > **注記**：本ドキュメントは AI により生成され、その後人により修正されています。
-
-MLIP-HOT は、機械学習原子間ポテンシャル（MLIP）に基づく計算用の包括的なツールキットであり、構造最適化、形成エネルギー計算、凸包解析が含まれています。このツールキットは、高スループット材料探索パイプラインの構築に焦点を当てています。使いやすさと高い性能がこのツールキットの主な利点です。
+機械学習原子間ポテンシャル（MLIP）に基づく計算用の包括的なツールキットであり、構造最適化、形成エネルギー計算、凸包解析が含まれています。このツールキットは、高スループット材料探索パイプラインの構築に焦点を当てています。使いやすさと高い性能がこのツールキットの主な利点です。
 
 方法の詳細と応用例については、以下の論文を参照してください：https://arxiv.org/abs/2508.20556。MLIP-HOT を使用または拡張する場合は、この論文を引用してください。
 
 
 ## 概要
 
-このツールは以下の機能を提供します：
+このコードは以下の機能を提供します：
 - **構造最適化**：様々な MLIP（CHGNet、MatterSim、eSEN-30M-OAM など）を使用して結晶構造を最適化
 - **形成エネルギー計算**：MLIP を使用して形成エネルギーを計算
 - **凸包距離解析**：MLIP を使用して凸包からの距離を計算
 
 このリポジトリにはさらに以下の便利なスクリプトが含まれています：
 - **高スループット構造生成**：POSCAR または CIF 入力から元素組成をスクリーニングするための構造を生成
-- **凸包化合物情報の取得**：OQMD および Materials Project から API 経由で凸包化合物を取得
-- **相図プロット**：選定された化合物の相図を生成
-- **全体最小値の決定**：複数の初期構造からの最適化結果を比較し、全体最小値を決定
+- **グローバル最小値の決定**：複数のローカル最小値からグローバル最小値を決定
   
 #### 主な機能
 
@@ -123,33 +121,46 @@ python3 $MLIP_HOT -c pipeline.yaml
 
 ```yaml
 # タスク選択: pipeline | optimize | form | hull
-task: pipeline 
-# MLIP モデル選択
+task: pipeline
+# 選択するMLIP モデル
 model: mattersim
-# オプション：グローバル MPI 設定、nproc>1 で MPI 有効化
-mpi_nproc: 4
-# ステージ 1：最適化
+# オプション：グローバル MPI 設定（タスク単位のオーバーライドをサポート）
+mpi_nproc: 10
+
+# ステージ 1: 最適化
 optimize:
-    input: ./example_data.csv # 入力 CSV ファイル
-    output: ./example_result  # 出力ディレクトリ
-# ステージ 2：形成エネルギー（デフォルト設定を使用）
+  input:  ./example.csv         # 入力 csv ファイル
+  output: example_result_task1  # 出力ディレクトリ
+# ステージ 2: 形成エネルギー；デフォルト設定を使用
 form:
-# ステージ 3：凸包距離（デフォルト設定を使用）
+# ステージ 3: 凸包距離；デフォルト設定を使用
 hull:
 ```
 
-`input` ファイルには、緩和の初期結晶構造を定義する `cell`、`positions`、`numbers` 列が含まれている必要があります。形式要件については、例の入力 CSV を参照してください。出力は新しい列として追加され、すべての元の入力列は保持されます。`formula`、`composition`、`ID` などの識別子列を入力ファイルに追加することをお勧めします。
+`input` ファイルには、緩和する結晶構造を定義する `cell`、`positions`、`numbers` 列が含まれている必要があります。形式要件については、例の入力 CSV を参照してください。また、POSCAR または CIF ファイルから入力 csv ファイルを生成するスクリプトも提供しています（例 5 を参照）。
 
-ツールキットは以下の出力列を書き込みます：`optimized_formula`、`optimized_cell`、`optimized_positions`、`optimized_numbers`、`Energy (eV/atom)`、`Formation Energy (eV/atom)`、`Hull Distance (eV/atom)`。進捗と詳細は実行中に出力されます。
+ツールキットは以下の出力列を書き込みます：`optimized_formula`、`optimized_cell`、`optimized_positions`、`optimized_numbers`、`Energy (eV/atom)`、`Formation Energy (eV/atom)`、`Hull Distance (eV/atom)`。進捗と詳細は実行中に出力されます。出力は新しい列として追加され、すべての元の列は保持されます。入力ファイルに `formula`、`composition`、`ID` などの識別子列を含めることをお勧めします。
 
+事前計算された結果と DFT を使用して得られた結果は `example/results` に含まれており、比較できます。
 
-ジョブはコマンドラインインターフェース（CLI）（設定ファイルなし）でドット記号フラグを使用して実行することもできます。同等の CLI は以下の通りです：
+ジョブはコマンドラインインターフェース（CLI）（設定ファイルなし）を使用して実行することもできます。同等の CLI は以下の通りです：
 
 ```bash
 # example フォルダから
-python3 $MLIP_HOT \
+conda activate MLIP_mattersim 
+MLIP_HOT=../scripts/MLIP_HOT.py
+
+python $MLIP_HOT \
     --task pipeline \
     --model mattersim \
+    --mpi_nproc 10 \
+    --opt.input ./example.csv \
+    --opt.output ./example_result_task1 
+```
+
+最適化された構造、形成エネルギー、凸包距離は `example_result` 内のファイルに書き込まれます。
+
+> 💡 ヒント: 設定ファイルと CLI の両方を使用できます。CLI の値は設定ファイルの値を上書きします。
     --mpi_nproc 4 \
     --opt.input ./example_data.csv \
     --opt.output ./example_result 
