@@ -381,7 +381,9 @@ def opt_loop_row(local_data: List, model: str, strain: List[float] = None, symme
             ml_positions = str(final_structure.frac_coords.tolist())
             ml_numbers   = str(list(final_structure.atomic_numbers))
             ml_energy    = atoms_opt.get_total_energy() / atoms_opt.get_global_number_of_atoms()
-            ml_formula    = structure.composition.reduced_formula
+            # ml_formula   = structure.composition.reduced_formula
+            ml_formula   = structure.composition.hill_formula.replace(" ", "")
+            # reduced_formula sometimes contains "(" ")" which causes issues in downstream processing
 
             local_results.append([init_cell, init_positions, init_numbers, ml_formula, ml_cell, ml_positions, ml_numbers, ml_energy])
             
