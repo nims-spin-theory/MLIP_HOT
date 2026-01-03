@@ -1,4 +1,4 @@
-[中文](README_zh.md) [日本語](README_ja.md)
+[日本語](README_ja.md) [中文](README_zh.md) 
 
 # MLIP-based High-throughput Optimization and Thermodynamics (MLIP-HOT)
 
@@ -29,7 +29,7 @@ This repository also contains useful scripts for:
 - **High-Quality Reference Structures**: Utilize DFT-optimized structures from OQMD as initial configurations for reference energy calculations
 - **Relax from different initial structures perturbed strain**: Apply strain to structures before optimization is started.
 - **Primitive Cell Conversion**: The structure can be converted to primitive cell before optimization to improve efficiency
-- **No GPU device is required** This toolkit applies pre-trained MLIPs and can run efficiently on CPU.
+- **No GPU device is required**: This toolkit applies pre-trained MLIPs and can run efficiently on CPU.
 
 
 ## Supported MLIP Models
@@ -114,7 +114,7 @@ python $MLIP_HOT -c pipeline.yaml
 ```
 If the example folder is copied to another place or the code is used in real practice, please change `MLIP_HOT=../scripts/MLIP_HOT.py` to the absolute path to `MLIP_HOT.py` on your computer.
 
-> 💡 Quick Fix: If meet error message about missing module, please install it. For example if module `pyyaml` is missing, please do `pip install pyyaml`.
+> 💡 Quick Fix: If you meet an error message about a missing module, please install it. For example, if module `pyyaml` is missing, please do `pip install pyyaml`.
 
 
 All settings are controlled by the config file `pipeline.yaml`. Now, let's explain the meaning in this config file. 
@@ -233,9 +233,9 @@ python $MLIP_HOT \
 ### 3. Separate the job across multiple nodes for efficiency.
 In high-throughput research, the number of screened compounds is often very large. In `pipeline` or `optimize` task, it is more efficient to divide the input database into several chunks and run each chunk separately on multiple computation nodes. For example, divide the database into 20 chunks, run each chunk on one computer, and concatenate all results at the end. 
 
-This can be performed using  `optimize.size` and `optimize.rank` flags: `size` specifies the number of chunks to generate, and `rank` specifies which chunk to process in the current calculation (option is $0$ to $N_{size}-1$).
+This can be performed using  `optimize.size` and `optimize.rank` flags: `size` specifies the number of chunks to generate, and `rank` specifies which chunk to process in the current calculation (from $0$ to $N_{size}-1$).
 
-An example using 3 chucks are included in `example`: 
+An example using 3 chunks is included in `example`: 
 
 ```bash
 conda activate MLIP_mattersim 
@@ -308,13 +308,34 @@ python  /Users/xiaoenda/WORK/y_git_repo/MLIP_HOT/scripts/find_global_minimum.py 
 For more features of this script, please run `python ../scripts/find_global_minimum.py -h`.
 
 > 💡 Tip: This script works for output of pipeline, optimize, form, and hull task.
-> 
-### 5. Generate screening structures from POSCAR or CIF
 
+### 5. Generate input file from POSCAR or CIF
 
-## 
-## 
-## 
+Since structure generation varies significantly between applications, we provide a simple example in `example/generate_input` demonstrating how to generate input files. The example loads structures from POSCAR, CIF, or numbers, then creates new structures by replacing atoms with different elements. The resulting structures are saved to a CSV file that can be used directly as input to MLIP-HOT. We hope this example will help you create scripts tailored to your specific use case.
+
+To keep this document concise, detailed explanations are included in the notebook itself rather than here. One important point: for users working with `pymatgen` structures, input files can be generated from a list of structures using the code block below. Users more familiar with `ASE` and `phonopy` can easily convert those structures to pymatgen format.
+
+``` python
+# structures_list contains pymatgen structures
+data_list = []
+for idx, modified_structure in enumerate(structures_list):
+    cell      = str(modified_structure.lattice.matrix.tolist())
+    positions = str(modified_structure.frac_coords.tolist())
+    numbers   = str(list(modified_structure.atomic_numbers))
+    composition    = str(modified_structure.composition.hill_formula.replace(" ", ""))
+    
+    data_list.append({
+        'index': idx,
+        'composition': composition,
+        'cell':      cell,
+        'positions': positions,
+        'numbers':   numbers
+    })
+
+df_structures = pd.DataFrame(data_list)
+output_csv_path = "generated_structures.csv"
+df_structures.to_csv(output_csv_path, index=False)
+```
 
 ## MLIP Package Installation
 

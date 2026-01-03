@@ -1,42 +1,43 @@
 [English](README.md) [中文](README_zh.md)
 
-# 機械学習原子間ポテンシャル（MLIP）に基づく高スループット最適化・熱力学ツールキット（MLIP-HOT）
-> **注記**：本ドキュメントは AI により生成され、その後人により修正されています。
-機械学習原子間ポテンシャル（MLIP）に基づく計算用の包括的なツールキットであり、構造最適化、形成エネルギー計算、凸包解析が含まれています。このツールキットは、高スループット材料探索パイプラインの構築に焦点を当てています。使いやすさと高い性能がこのツールキットの主な利点です。
+# MLIP に基づく高スループット最適化と熱力学解析（MLIP-HOT）
 
-方法の詳細と応用例については、以下の論文を参照してください：https://arxiv.org/abs/2508.20556。MLIP-HOT を使用または拡張する場合は、この論文を引用してください。
+MLIP-HOT は、機械学習原子間ポテンシャル（Machine Learning Interatomic Potential, MLIP）に基づく計算のための包括的なツールキットです。構造最適化、形成エネルギー評価、凸包（convex hull）解析を含みます。本ツールキットは計算材料探索に向けた高スループット・パイプラインの構築に焦点を当てています。主な利点は、使いやすさと高い性能です。
+
+手法の説明とデモは以下の論文にあります：
+https://arxiv.org/abs/2508.20556 。MLIP-HOT を使用または拡張する場合は、この研究を引用してください。
 
 
 ## 概要
 
-このコードは以下の機能を提供します：
-- **構造最適化**：様々な MLIP（CHGNet、MatterSim、eSEN-30M-OAM など）を使用して結晶構造を最適化
-- **形成エネルギー計算**：MLIP を使用して形成エネルギーを計算
-- **凸包距離解析**：MLIP を使用して凸包からの距離を計算
+このコードでできること：
+- **構造最適化（Structural Optimization）**：各種 MLIP（CHGNet、MatterSim、eSEN-30M-OAM など）を用いた結晶構造最適化
+- **形成エネルギー計算（Formation Energy Calculation）**：MLIP を用いた形成エネルギー計算
+- **凸包解析（Convex Hull Analysis）**：MLIP を用いた凸包からの距離計算
 
-このリポジトリにはさらに以下の便利なスクリプトが含まれています：
-- **高スループット構造生成**：POSCAR または CIF 入力から元素組成をスクリーニングするための構造を生成
-- **グローバル最小値の決定**：複数のローカル最小値からグローバル最小値を決定
-  
+このリポジトリには、以下の便利なスクリプトも含まれます：
+- **高スループット構造生成（HTP Structure Generation）**：POSCAR または CIF 入力から、組成スクリーニング用の構造を生成
+- **グローバル最小の決定（Determine Global Minimum）**：複数の局所最小からグローバル最小を決定
+
 #### 主な機能
 
-- **MPI 並列化**：分散コンピューティングを通じた大規模データセットの効率的処理
-- **柔軟なジョブ配分**：複数の計算リソースにまたがるデータセットチャンク別のジョブ投入
-- **全体最小値決定**：異なる初期構成による複数回の最適化実行から最低エネルギー構造を識別
-- **形成エネルギー計算**：MLIP 導出の参照エネルギーを使用した形成エネルギー計算
-- **凸包距離解析**：MLIP 導出の参照エネルギーを使用した凸包距離計算
-- **高品質参照構造**：OQMD の DFT 最適化構造を参照エネルギー計算の初期構成として使用
-- **歪み摂動による異なる初期構造からの緩和**：最適化開始前に構造に歪みを適用
-- **原始格子への変換**：効率向上のため、最適化前に構造を原始格子に変換
-- **GPU デバイスは不要**：本ツールキットは事前学習された MLIP を適用し、CPU 上で効率的に実行可能
+- **MPI 並列化**：分散計算により大規模データセットを効率的に処理
+- **柔軟なジョブ分配**：データセットのチャンクを分割し、複数計算資源へ個別に投入可能
+- **グローバル最小の決定**：異なる初期配置による複数の最適化結果から最小エネルギー構造を同定
+- **形成エネルギー計算**：MLIP 由来の参照エネルギーを用いて形成エネルギーを計算
+- **凸包距離解析**：MLIP 由来の参照エネルギーを用いて凸包距離を計算
+- **高品質な参照構造**：OQMD 由来の DFT 最適化構造を参照エネルギー計算の初期構造として利用
+- **異なる初期構造（ひずみ摂動）からの緩和**：最適化開始前に構造へひずみを付与
+- **原始胞変換**：効率向上のため、最適化前に構造を原始胞へ変換可能
+- **GPU 不要**：事前学習済み MLIP を使用し、CPU で効率的に実行可能
 
 
 ## 対応 MLIP モデル
 
-本ツールキットは以下の機械学習原子間ポテンシャルモデルに対応しています：
+本ツールキットは以下の機械学習原子間ポテンシャル（MLIP）モデルに対応しています：
 
 - **CHGNet**：`chgnet`
-- **SevenNet 系統**：
+- **SevenNet バリアント**：
   - `7net-0`
   - `7net-l3i5`
   - `7net-mf-ompa`
@@ -51,103 +52,103 @@
 - **eSEN**：`esen_30m_oam`
 - **HIENet**：`hienet`
 
-MLIP インストール手順については、以下の **MLIP パッケージインストール** セクションを参照してください。
+MLIP のインストール手順は下記の **MLIP パッケージのインストール** セクションを参照してください。
 
-ツールキットはモジュール性を考慮して設計されており、新しい MLIP モデルを既存フレームワークにシームレスに統合できます。
+本ツールキットはモジュール性を重視して設計されており、新しい MLIP モデルを既存フレームワークへシームレスに統合できます。
+
 
 
 ## 前提条件
 
-本ツールキットを使用する前に、システムに **Miniconda** または **Anaconda** がインストールされていることが必要です。Miniconda は conda の最小限インストーラーで、異なる MLIP モデル用の隔離された Python 環境を作成するために使用されます。
+このツールキットを使用する前に、システムへ **Miniconda** または **Anaconda** をインストールしてください。Miniconda は conda の最小インストーラで、異なる MLIP モデルごとに独立した Python 環境を作成するために使用します。
 
 **Miniconda のインストール：**
 
-1. 公式ウェブサイトから Miniconda をダウンロード：https://docs.conda.io/en/latest/miniconda.html
-2. お使いのオペレーティングシステム（Linux、macOS、Windows）用のインストーラーを選択
-3. プラットフォームのインストール手順に従う
+1. 公式サイトから Miniconda をダウンロード：https://docs.conda.io/en/latest/miniconda.html
+2. OS（Linux / macOS / Windows）に対応するインストーラを選択
+3. プラットフォームごとの手順に従ってインストール
 
-**インストールの確認：**
+**インストール確認：**
 ```bash
 conda --version
 ```
 
-conda がインストールされたら、以下の **MLIP パッケージインストール** セクションに記載されているように、各 MLIP モデル用の独立した環境を作成できます。
+conda をインストールしたら、下記 **MLIP パッケージのインストール** セクションの説明に従い、各 MLIP モデル用に環境を分けて作成できます。
 
 
-## 使用方法
+## 使い方
 
-MLIP-HOT は、単一のエントリーポイント（`scripts/MLIP_HOT.py`）を提供し、完全なパイプライン（構造最適化 → 形成エネルギー → 凸包距離）またはYAML 設定を使用した個別ステージを実行できます。
+MLIP-HOT は単一のエントリポイント（`scripts/MLIP_HOT.py`）を提供します。YAML 設定によりフル・パイプライン（構造最適化 → 形成エネルギー → 凸包からの距離）を実行することも、各ステージのみを実行することも可能です。
 
 以下の例を示します：
 
-1. クイックスタート：すべてのタスクを一度に実行する簡単な例
+1. クイックスタート：3 つのタスクを一度に実行する簡単な例
 2. 単一タスクの実行
-3. 複数ノード間でのジョブ分割による効率化
-4. 複数の初期構造を使用した全体最小値の決定
-5. POSCAR または CIF からの入力ファイル生成
+3. 効率のため複数ノードへジョブを分割
+4. 複数初期構造からグローバル最小を決定
+5. POSCAR / CIF 入力から入力ファイルを生成
 
 
-### 1. クイックスタート：すべてのタスクを一度に実行
+### 1. クイックスタート：3 つのタスクを一度に実行
 
 #### 環境作成と MLIP のインストール
-この例では `MatterSim` MLIP を使用します。conda 環境を作成し MatterSim をインストールするには、以下を実行します。
+この例では `MatterSim` MLIP を使用します。conda 環境を作成し MatterSim をインストールします。
 
 ```bash
 conda create -n MLIP_mattersim python=3.9
 conda activate MLIP_mattersim
 pip install mattersim
 ```
-他の MLIP のインストール手順は、**MLIP パッケージインストール** セクションに記載されています。各 MLIP パッケージを独立した conda 環境にインストールすることを推奨します。以下の例で `mattersim` を使用する場合：
 
-#### 構造最適化、形成エネルギー、凸包距離計算
+他の MLIP のインストール手順は **MLIP パッケージのインストール** セクションにあります。各 MLIP は別々の conda 環境にインストールすることを推奨します。以下の例は `mattersim` を使用します。
 
-`example` ディレクトリには 100 個の化合物を含む例が用意されています。このデータセットは [DXMag Computational HeuslerDB](https://www.nims.go.jp/group/spintheory/database/) から取得されています。インストール検証と出力比較を支援するための事前計算結果も含まれています。含まれるファイルの詳細については、`example/README.md` を確認してください。
+#### 構造最適化・形成エネルギー・凸包距離の計算
+
+`example` ディレクトリに 100 化合物のサンプルを含みます。このデータセットは [DXMag Computational HeuslerDB](https://www.nims.go.jp/group/spintheory/database/) から取得しました。インストール確認および出力比較のため、事前計算結果も含まれています。含まれるファイルの詳細は `example/README.md` を参照してください。
 
 ```bash
-# 環境がまだ有効になっていない場合
-conda activate MLIP_mattersim 
+# 環境が未アクティベートならアクティベート
+conda activate MLIP_mattersim
 
 MLIP_HOT=../scripts/MLIP_HOT.py
-python3 $MLIP_HOT -c pipeline.yaml 
+python $MLIP_HOT -c pipeline.yaml
 ```
-例フォルダが別の場所にコピーされたか、実際のデータに使用される場合は、`MLIP_HOT=../scripts/MLIP_HOT.py` をお使いのコンピュータの `MLIP_HOT.py` への絶対パスに変更してください。
 
-> クイックフィックス
-> - モジュール欠失エラーの場合、インストールしてください
-> - 例えば、`pyyaml` モジュールが欠失している場合は、`pip install pyyaml` を実行してください
+example フォルダを別の場所にコピーした場合や実運用で使う場合は、`MLIP_HOT=../scripts/MLIP_HOT.py` をあなたの環境上の `MLIP_HOT.py` への絶対パスに変更してください。
 
+> 💡 Quick Fix：不足モジュールのエラーが出た場合はインストールしてください。例：`pyyaml` が不足している場合は `pip install pyyaml`。
 
-すべての設定は設定ファイル `pipeline.yaml` で制御されます。ここで、この設定ファイルの意味を説明します。
+すべての設定は `pipeline.yaml` で制御されます。以下にこの設定ファイルの意味を示します。
 
 ```yaml
-# タスク選択: pipeline | optimize | form | hull
+# Select task: pipeline | optimize | form | hull
 task: pipeline
-# 選択するMLIP モデル
+# Select interatomic potential model
 model: mattersim
-# オプション：グローバル MPI 設定（タスク単位のオーバーライドをサポート）
+# Optional global MPI settings (per-task overrides supported)
 mpi_nproc: 10
 
-# ステージ 1: 最適化
+# Stage 1: Optimization
 optimize:
-  input:  ./example.csv         # 入力 csv ファイル
-  output: example_result_task1  # 出力ディレクトリ
-# ステージ 2: 形成エネルギー；デフォルト設定を使用
+  input:  ./example.csv         # input csv file
+  output: example_result_task1  # directory where results will be written
+# Stage 2: Formation energy; use default settings
 form:
-# ステージ 3: 凸包距離；デフォルト設定を使用
+# Stage 3: Hull distance; use default settings
 hull:
 ```
 
-`input` ファイルには、緩和する結晶構造を定義する `cell`、`positions`、`numbers` 列が含まれている必要があります。形式要件については、例の入力 CSV を参照してください。また、POSCAR または CIF ファイルから入力 csv ファイルを生成するスクリプトも提供しています（例 5 を参照）。
+`input` ファイルには、緩和対象の結晶構造を定義する `cell`、`positions`、`numbers` の列が必要です。フォーマット要件はサンプル入力 CSV を参照してください。POSCAR / CIF から入力 CSV を生成するスクリプトも提供しています（例 5）。
 
-ツールキットは以下の出力列を書き込みます：`optimized_formula`、`optimized_cell`、`optimized_positions`、`optimized_numbers`、`Energy (eV/atom)`、`Formation Energy (eV/atom)`、`Hull Distance (eV/atom)`。進捗と詳細は実行中に出力されます。出力は新しい列として追加され、すべての元の列は保持されます。入力ファイルに `formula`、`composition`、`ID` などの識別子列を含めることをお勧めします。
+ツールキットは `optimized_formula`、`optimized_cell`、`optimized_positions`、`optimized_numbers`、`Energy (eV/atom)`、`Formation Energy (eV/atom)`、`Hull Distance (eV/atom)` を出力します。実行中に進捗と詳細が表示されます。出力は新しい列として追記され、元の列は保持されます。入力には `formula`、`composition`、`ID` などの識別列を含めることを推奨します。
 
-事前計算された結果と DFT を使用して得られた結果は `example/results` に含まれており、比較できます。
+`example/results` に事前計算結果および DFT による結果が含まれており、比較に利用できます。
 
-ジョブはコマンドラインインターフェース（CLI）（設定ファイルなし）を使用して実行することもできます。同等の CLI は以下の通りです：
+設定ファイルを使わず CLI だけで同等に実行することもできます（等価な CLI 例）：
 
 ```bash
-# example フォルダから
-conda activate MLIP_mattersim 
+# example フォルダから実行
+conda activate MLIP_mattersim
 MLIP_HOT=../scripts/MLIP_HOT.py
 
 python $MLIP_HOT \
@@ -155,174 +156,199 @@ python $MLIP_HOT \
     --model mattersim \
     --mpi_nproc 10 \
     --opt.input ./example.csv \
-    --opt.output ./example_result_task1 
+    --opt.output ./example_result_task1
 ```
 
-最適化された構造、形成エネルギー、凸包距離は `example_result` 内のファイルに書き込まれます。
+最適化構造、形成エネルギー、凸包距離は `example_result` に書き込まれます。
 
-> 💡 ヒント: 設定ファイルと CLI の両方を使用できます。CLI の値は設定ファイルの値を上書きします。
-    --mpi_nproc 4 \
-    --opt.input ./example_data.csv \
-    --opt.output ./example_result 
-```
-
-最適化された構造、形成エネルギー、凸包距離は `example_result` のファイルに書き込まれます。
-
-> ヒント
-> - 設定ファイルと CLI オーバーライド両方を使用できます。CLI 値は設定ファイル値を上書きします。
+> 💡 Tip：設定ファイルと CLI を併用できます。CLI の値が設定ファイルを上書きします。
 
 ### 2. 単一タスクの実行
 
-各ステージ（最適化／形成エネルギー／凸包距離）を個別に実行できます。例えば、単一の形成エネルギーまたは凸包距離計算を実行する場合、以下の設定を使用できます。
+各ステージ（optimize / formation energy / hull distance）は個別に実行できます。例の設定は以下です：
 
 ```yaml
-task: form 
+task: optimize
 model: mattersim
-form:
-    input:  ./example_data.csv
-    output: ./example_data_formation_energy.csv
+mpi_nproc: 10
+optimize:
+  input:  ./example.csv         # input csv file
+  output: example_result_task2  # directory where results will be written
 ```
 
 ```yaml
-task: hull 
+task: form
+model: mattersim
+form:
+    input:  example_result_task1/structure_optimization_result.csv
+    output: example_result_task2/form_result.csv
+```
+
+```yaml
+task: hull
 model: mattersim
 mpi_nproc: 4
 hull:
-    input:  ./example_data_formation_energy.csv
-    output: ./example_data_hull_distance.csv
+  input:  example_result_task2/form_result.csv
+  output: example_result_task2/hull_result.csv
 ```
-同等の CLI は以下の通りです：
+
+これらの設定ファイルは `example` フォルダにも含まれており、次のように実行できます：
 
 ```bash
-python3 $MLIP_HOT \
+conda activate MLIP_mattersim
+MLIP_HOT=../scripts/MLIP_HOT.py
+
+python $MLIP_HOT -c config2_single_task_optimize.yaml
+python $MLIP_HOT -c config2_single_task_form.yaml
+python $MLIP_HOT -c config2_single_task_hull.yaml
+```
+
+同様のタスクは等価な CLI でも実行できます：
+
+```bash
+python $MLIP_HOT \
+    --task optimize \
+    --model mattersim \
+    --mpi_nproc 4 \
+    --optimize.input  ./example.csv \
+    --optimize.output example_result_task2
+```
+
+```bash
+python $MLIP_HOT \
     --task form \
     --model mattersim \
-    --form.input  ./example_data.csv \
-    --form.output ./example_data_formation_energy.csv
+    --form.input  example_result_task1/structure_optimization_result.csv \
+    --form.output example_result_task2/form_result.csv
 ```
 
 ```bash
-python3 $MLIP_HOT \
+python $MLIP_HOT \
     --task hull \
     --model mattersim \
     --mpi_nproc 4 \
-    --hull.input  ./example_data_formation_energy.csv \
-    --hull.output ./example_data_hull_distance.csv
+    --hull.input  example_result_task2/form_result.csv \
+    --hull.output example_result_task2/hull_result.csv
 ```
 
-### 3. 複数ノード間でのジョブ分割による効率化
+### 3. 効率のため複数ノードへジョブを分割
 
-高スループット研究では、スクリーニング対象の化合物数が非常に多いことがあります。データベースをいくつかのチャンクに分割し、複数の計算ノード上で各チャンクの最適化を個別に実行する方が効率的です。例えば、データベースを 20 個のチャンクに分割し、各チャンクを 1 台のコンピュータで実行し、最後にすべての結果を連結します。
+高スループット研究では、スクリーニング対象化合物数が非常に大きいことが一般的です。`pipeline` または `optimize` タスクでは、入力データベースを複数のチャンクに分割し、各チャンクを複数計算ノードで個別に実行して、最後に結果を結合する方が効率的です。例えばデータベースを 20 チャンクに分割し、それぞれを 1 台の計算機で実行し、最後に結合します。
 
-これは `size` および `rank` フラグで制御されます。`size` は生成するチャンク数を指定し、`rank` は現在の計算で処理するチャンクを指定します。
+これは `optimize.size` と `optimize.rank` で実現できます：`size` は生成するチャンク数、`rank` は現在の計算で処理するチャンク番号（$0$ から $N_{size}-1$）を指定します。
 
-```yaml
-# タスク選択: pipeline | optimize | form | hull
-task: pipeline 
-# MLIP モデル選択
-model: mattersim
-# オプション：グローバル MPI 設定、nproc>1 で MPI 有効化
-mpi_nproc: 4
-# ステージ 1：最適化
-optimize:
-    input: ./example_data.csv # 入力 CSV ファイル
-    output: ./example_result  # 出力ディレクトリ
-    size: 4 # チャンク数
-    rank: 0 # チャンク番号は 0 から size-1
-# ステージ 2：形成エネルギー（デフォルト設定を使用）
-form:
-# ステージ 3：凸包距離（デフォルト設定を使用）
-hull:
-```
-
-すべてのチャンクが計算されたら、`concat_csv.py` を使用して結果を連結できます。
+`example` に 3 チャンクの例があります：
 
 ```bash
-# 複数チャンクの結果を連結
+conda activate MLIP_mattersim
+MLIP_HOT=../scripts/MLIP_HOT.py
+
+python $MLIP_HOT -c config3_size_rank.yaml --optimize.size 3 --optimize.rank 0
+python $MLIP_HOT -c config3_size_rank.yaml --optimize.size 3 --optimize.rank 1
+python $MLIP_HOT -c config3_size_rank.yaml --optimize.size 3 --optimize.rank 2
+```
+
+設定ファイルは例 1 と同じで、CLI に 2 つのフラグを追加しただけです。
+
+すべてのチャンクが計算できたら、`../script/concat_csv.py` で結合できます。
+
+```bash
+# Concatenate results from multiple chunks
 python ../scripts/concat_csv.py \
-    -f "./example_result" \
-    -p "structure_optimization_result_*.csv" \
-    -o example_data_structure_optimization_result.csv
+    -f "./example_result_task3" \
+    -p "hull_distance_*.csv" \
+    -o "example_result_task3/concat_result.csv"
 
-# フラグ：
-#   -f: 連結する CSV ファイルを含むフォルダパス
-#   -p, --pattern: 特定ファイルにマッチするグロブパターン（例："*.csv"、"data_*.csv"）
-#   -o, --output: 連結結果の出力 CSV ファイル名
+#   -f, --folder:  Folder path containing CSV files to concatenate
+#   -p, --pattern: Glob pattern to match files for concatenation
+#                  (e.g., "structure_optimization_result_*.csv", "hull_distance_*.csv")
+#   -o, --output:  Output CSV filename for concatenated results
 ```
 
-スクリプト `concat_csv.py` は連結対象ファイルの名前を出力し、不完全なチャンクを識別します。このスクリプトの追加機能については、`python ../scripts/concat_csv.py -h` を実行してください。
+このスクリプトは `XX_{size}_{rank}.csv` パターンに従う任意のファイルを結合できます。`concat_csv.py` は結合したファイル名を表示し、不完全なチャンクがあれば検出します。
 
-> ヒント
-> - スクリプト `concat_csv.py` は `pipeline` タスクまたは `optimize` タスクの出力に対応しています。
+> 💡 Tip：`concat_csv.py` は `pipeline` と `optimize` の出力に使用できます。
 
-### 4. 複数の初期構造を使用した全体最小値の決定
+### 4. 複数初期構造からグローバル最小を決定
 
-DFT ベースの最適化と同様に、異なる初期構造から開始した最適化は、異なるエネルギーを持つ異なる局所極小値に収束することがあります。基底状態は、これらの極小値を比較し、最低エネルギー構造を選択することで識別されます。
+化合物には複数の局所最小（local minima）が存在する場合があり、真の基底状態（ground state）はグローバル最小（global minimum）です。この場合、異なる初期構造が異なる局所最小に緩和し、エネルギーが異なることがあります。これらの最小を比較して最も低エネルギーの構造を選ぶことで基底状態を同定できます。同様の状況は DFT による最適化でも起こります。
 
-これを行う 1 つの方法は、異なる初期構造を持つ複数の CSV ファイルを準備し、各ファイルに対して構造最適化を実行することです。
+一つの方法は、異なる初期構造を含む複数の CSV を用意し、それぞれで構造最適化を行うことです。
 
-ツールキットは、`strain` フラグを使用して異なる初期構造構成を探索するために、最適化前に歪み摂動を適用することもできます。
+別の方法は、緩和前に構造へ異なるひずみを与えて異なる初期構造を生成することです。本コードでは `strain` フラグで簡単に実行できます。ひずみはスカラー（等方ひずみ）または 3x3 行列（異方ひずみ）にできます。緩和前に生成された構造も出力へ書き出されます。
 
-設定ファイルの例：
-
-```yaml
-# 等方性歪み
-task: pipeline
-model: mattersim
-mpi_nproc: 4
-optimize:
-    input: ./example_data.csv
-    output: example_result_isotropic
-    strain: 0.1
-```
-
-```yaml
-# 異方性歪み（3x3 行列）
-task: pipeline
-model: mattersim
-mpi_nproc: 4
-optimize:
-    input: ./example_data.csv
-    output: example_result_anisotropic
-    strain: [[0.1, 0.1, 0.0], [0.1, -0.1, 0.0], [0.0, -0.1, 0.0]]
-```
-歪み後の構造は、列 `strained_cell`、`strained_positions`、`strained_numbers` に格納されます。
-
-スクリプト `find_global_minimum.py` を使用して全体最小値を識別できます。
+簡単な例：
 
 ```bash
-# 複数の結果ファイル全体で全体最小エネルギーを検出
-python ../scripts/find_global_minimum.py \
-    -i example_data_result_test1.csv \
-       example_data_result_test2.csv \
-    -o example_data_result_global_min.csv \
-    --labels composition
-# フラグ：
-#   -i, --input: 比較する複数の入力 CSV ファイル（スペース区切りリスト）
-#   -o, --output: 全体最小エネルギーを持つ構造を含む出力ファイル
-#   --labels: 各入力ファイルのオプションカスタムラベル（入力ファイルの順序に一致）
+MLIP_HOT=/Users/xiaoenda/WORK/y_git_repo/MLIP_HOT/scripts/MLIP_HOT.py
+python $MLIP_HOT -c config4_strain.yaml --optimize.strain "0.1" --optimize.output example_result_task4/strain1
+
+MLIP_HOT=/Users/xiaoenda/WORK/y_git_repo/MLIP_HOT/scripts/MLIP_HOT.py
+python $MLIP_HOT -c config4_strain.yaml --optimize.strain "[[0.1, 0.1, 0.0], [0.1, -0.1, 0.0], [0.0, -0.1, 0.0]]" --optimize.output example_result_task4/strain2
 ```
-このスクリプトの追加機能については、`python ../scripts/find_global_minimum.py -h` を実行してください。
 
-> ヒント
-> - この機能は前述の `size` および `rank` 機能と組み合わせることができます。
+> 💡 Tip：この機能は前述の `size` と `rank` と組み合わせられます。
+> 例：各ひずみごとに `size` と `rank` で入力を分割し、最後に結合。
 
+計算が完了したら、`find_global_minimum.py` でグローバル最小を特定できます。
 
-### 5. POSCAR または CIF からのスクリーニング構造生成
+```bash
+# Find global minimum energies across multiple result files
+python  /Users/xiaoenda/WORK/y_git_repo/MLIP_HOT/scripts/find_global_minimum.py \
+    -i example_result_task4/strain1/hull_distance.csv \
+       example_result_task4/strain2/hull_distance.csv \
+    -o example_result_task4/global_min.csv \
+    --energy-column "Energy (eV/atom)" \
+    --group-by-column "composition"
 
-提供されたスクリプトを使用すると、POSCAR または CIF をスクリーニング入力 CSV に変換できます。一般的なワークフロー：
-1) 目的の化学計量法を含む POSCAR または CIF を準備
-2) スクリプトを実行して `cell`、`positions`、`numbers` 列を含む CSV を生成
-3) 生成された CSV を `optimize.input` または `pipeline` の入力として後続ステップに進む
+# Flags:
+#   -i, --input:       Multiple input CSV files to compare (space-separated list)
+#   -o, --output:      Output file containing ground state structures
+#   --energy-column:   Name of the column containing energy values (default: Energy (eV/atom))
+#   --group-by-column: Column name used to identify the compound, (default: use index)
+#                      i.e. entries with same value are regarded as the same compound.
+```
 
+詳しくは `python ../scripts/find_global_minimum.py -h` を実行してください。
 
-## MLIP パッケージインストール
+> 💡 Tip：このスクリプトは pipeline / optimize / form / hull タスクの出力に対応します。
 
-このセクションでは、サポートされている各 MLIP モデルの conda 環境セットアップ手順を提供します。
+### 5. POSCAR / CIF から入力ファイルを生成
+
+構造生成は用途により大きく異なるため、`example/generate_input` に入力ファイル生成の簡単な例を用意しました。この例では POSCAR、CIF、または原子番号から構造を読み込み、原子を異なる元素に置換して新しい構造を作成します。結果は MLIP-HOT への入力として直接使える CSV に保存されます。この例が各自の用途に合わせたスクリプト作成の助けになることを期待しています。
+
+本ドキュメントを簡潔に保つため、詳細説明はここではなくノートブック内に記載しています。重要な点として、`pymatgen` 構造を使うユーザーは、以下のコードブロックで構造リストから入力ファイルを生成できます。`ASE` や `phonopy` に慣れているユーザーも、pymatgen 形式へ容易に変換できます。
+
+```python
+# structures_list contains pymatgen structures
+data_list = []
+for idx, modified_structure in enumerate(structures_list):
+    cell      = str(modified_structure.lattice.matrix.tolist())
+    positions = str(modified_structure.frac_coords.tolist())
+    numbers   = str(list(modified_structure.atomic_numbers))
+    composition    = str(modified_structure.composition.hill_formula.replace(" ", ""))
+
+    data_list.append({
+        'index': idx,
+        'composition': composition,
+        'cell':      cell,
+        'positions': positions,
+        'numbers':   numbers
+    })
+
+df_structures = pd.DataFrame(data_list)
+output_csv_path = "generated_structures.csv"
+df_structures.to_csv(output_csv_path, index=False)
+```
+
+## MLIP パッケージのインストール
+
+このセクションでは、対応する各 MLIP モデルの conda 環境セットアップ手順を示します。
 
 ### CHGNet
 
-ウェブサイト：https://chgnet.lbl.gov/
+Website: https://chgnet.lbl.gov/
 
 ```bash
 conda create -n MLIP_chgnet python=3.10
@@ -332,7 +358,7 @@ pip install chgnet
 
 ### SevenNet
 
-ウェブサイト：https://github.com/MDIL-SNU/SevenNet
+Website: https://github.com/MDIL-SNU/SevenNet
 
 ```bash
 conda create -n MLIP_7net python=3.10
@@ -342,7 +368,7 @@ pip install sevenn
 
 ### MatterSim
 
-ウェブサイト：https://github.com/microsoft/mattersim
+Website: https://github.com/microsoft/mattersim
 
 ```bash
 conda create -n MLIP_mattersim python=3.9
@@ -352,7 +378,7 @@ pip install mattersim
 
 ### HIENet
 
-ウェブサイト：https://github.com/divelab/AIRS/tree/main/OpenMat/HIENet
+Website: https://github.com/divelab/AIRS/tree/main/OpenMat/HIENet
 
 ```bash
 conda create -n MLIP_HIENet python=3.9
@@ -366,18 +392,19 @@ cd AIRS/OpenMat/HIENet
 pip install .
 ```
 
-**トラブルシューティング**：`OSError: /lib64/libstdc++.so.6: version 'GLIBCXX_3.4.29' not found` エラーが発生した場合は、以下を実行してください：
+**Troubleshooting**：`OSError: /lib64/libstdc++.so.6: version 'GLIBCXX_3.4.29' not found` が出た場合は以下を実行してください。
 
 ```bash
 conda install -c conda-forge libstdcxx-ng
 ```
 
-### EquiformerV2 および eSEN
+### EquiformerV2 と eSEN
 
-ウェブサイト：https://github.com/facebookresearch/fairchem
-ウェブサイト：https://huggingface.co/facebook/OMAT24/tree/main
+Website: https://github.com/facebookresearch/fairchem
 
-EquiformerV2 および eSEN MLIP は FAIRChem バージョン 1.10.0 内に実装されており、以下のようにインストールできます：
+Website: https://huggingface.co/facebook/OMAT24/tree/main
+
+EquiformerV2 と eSEN の MLIP は FAIRChem 1.10.0 に実装されており、以下でインストールできます。
 
 ```bash
 conda create -n MLIP_fairchem python=3.9
@@ -386,7 +413,7 @@ pip install fairchem-core==1.10.0
 pip install torch_scatter torch_sparse torch_spline_conv torch_geometric
 ```
 
-**注意**：EquiformerV2 および eSEN MLIP の場合、学習済みモデルのチェックポイントは FAIRChem パッケージに含まれておらず、公式ウェブサイトから個別にダウンロードする必要があります：https://huggingface.co/facebook/OMAT24/tree/main。これらのモデルを使用する場合は、`--checkpoint_path` フラグでチェックポイントパスを指定します：
+**Note**：EquiformerV2 と eSEN の学習済みチェックポイントは FAIRChem パッケージに含まれず、公式サイトから別途ダウンロードが必要です：https://huggingface.co/facebook/OMAT24/tree/main 。これらのモデルを使う場合は、`--checkpoint_path` フラグでチェックポイントパスを指定してください。
 
 ```bash
 mpirun -np 10 python ../scripts/MLIP_optimize.py \
@@ -401,28 +428,29 @@ mpirun -np 10 python ../scripts/MLIP_optimize.py \
 
 ### 1. 形成エネルギー計算
 
-化合物の **形成エネルギー** は、標準参照状態にある構成元素から化合物が形成される際のエネルギー変化を測定する熱力学量です。材料の **安定性** に関する洞察を提供します — 形成エネルギーが低い（より負である）ほど、通常、化合物はより安定です。
+**形成エネルギー（formation energy）** は、化合物が構成元素の標準参照状態から生成されるときのエネルギー変化を表す熱力学量です。材料の **安定性** を示す指標であり、一般に形成エネルギーが低い（より負）ほど安定な化合物であることを示します。
 
 $$ E_\text{form} = E_{\text{compound}} - \sum_i n_i \mu_i $$
+
 ここで：
 - $E_{\text{compound}}$：化合物のエネルギー
-- $n_i$：化合物内の元素 $i$ の原子数
-- $\mu_i$：元素 $i$ の化学ポテンシャル（通常は原子当たりのエネルギー）
+- $n_i$：元素 $i$ の原子数
+- $\mu_i$：元素 $i$ の化学ポテンシャル（通常は 1 原子あたりのエネルギー）
 
-### 2. 凸包からの距離
+### 2. 凸包からの距離（Distance above Convex Hull）
 
-**凸包からの距離** は、化学体系内のすべての可能な競合相によって定義される熱力学的安定性限界の上にある化合物の形成エネルギーがどの程度離れているかを測定します。これは、同じ組成での最も安定した相の組み合わせに対する化合物の相対的な不安定性を定量化します。
+**凸包からの距離（distance to the convex hull）** は、化合物の形成エネルギーが、同一化学系におけるすべての競合相から定義される熱力学的安定限界（凸包）からどれだけ上にあるかを測る指標です。同じ組成における最安定相（または相の混合）に対してどれだけ不安定かを定量化します。
 
 $$ E_\text{hull} = E_\text{form} - E_\text{form}^\text{(hull)} $$
 
 ここで：
 - $E_\text{form}$：化合物の形成エネルギー
-- $E_\text{form}^\text{(hull)}$：その組成での熱力学的に安定な相（または相の混合物）の形成エネルギー、すなわち凸包上のエネルギー
+- $E_\text{form}^\text{(hull)}$：その組成で熱力学的に安定な相（または相混合）の形成エネルギー、すなわち凸包上のエネルギー
 
 
 ## 引用
 
-本ツールキットを研究に使用する場合は、以下を引用してください：
+研究で本ツールキットを使用する場合は、以下を引用してください：
 
 ```bibtex
 @misc{xiao2025accuratescreeningfunctionalmaterials,
@@ -436,14 +464,14 @@ $$ E_\text{hull} = E_\text{form} - E_\text{form}^\text{(hull)} $$
 }
 ```
 
-さらに、研究で使用する特定の MLIP モデルを引用してください。**対応 MLIP モデル** セクションに記載された各モデルの公式ドキュメントと発表を参照してください。
+さらに、使用した各 MLIP モデルについても引用してください。各モデルの公式ドキュメントおよび出版物を参照してください（**対応 MLIP モデル** セクション）。
 
 
 ## トラブルシューティング
 
-#### GCC バージョン問題
+#### GCC バージョンの問題
 
-GCC バージョンの更新に関連するエラーが発生した場合は、以下のコマンドを使用して conda 環境内で GCC をアップグレードできます：
+古い GCC バージョンに関連するエラーが発生した場合、conda 環境内で GCC をアップグレードできます。
 
 ```bash
 conda install -y -c conda-forge gcc=11.3.0
@@ -452,10 +480,10 @@ gcc --version
 g++ --version
 ```
 
-**注意**：これらのコマンドを実行する前に、conda 環境が有効になっていることを確認してください。
+**Note**：これらのコマンド実行前に、対象の conda 環境が有効化されていることを確認してください。
 
-## [補足] API 経由で凸包化合物情報を取得するスクリプト
+## 【Extra】API 経由で凸包化合物情報を取得するスクリプト
 
-効率を改善するため、OQMD の凸包化合物を事前計算し、MLIP を使用して評価しました。これらの結果は参照ファイルとして保存されているため、凸包距離を直接計算できます。
+効率向上のため、OQMD から凸包上の化合物を事前計算し、MLIP で評価した結果を参照ファイルとして保存しています。これにより凸包距離を直接計算できます。
 
-データベースが継続的に増加し、参照ファイル更新がときどき遅延する可能性があるため、OQMD または Materials Project（MP）から API 経由で凸包化合物を取得するスクリプトも提供しています。完全な手順については、[docs/convex_hull_compounds.md](docs/convex_hull_compounds.md) を参照してください。
+ただしデータベースは継続的に成長し、参照ファイルの更新が遅れる場合があります。そのため、OQMD または Materials Project（MP）から API を通じて凸包化合物を取得するスクリプトも提供しています。詳細は [docs/convex_hull_compounds.md](docs/convex_hull_compounds.md) を参照してください。
