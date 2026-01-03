@@ -316,6 +316,10 @@ def main():
         
         log_info("Sorting and saving results...")
         compound_db = compound_db.sort_index()
+        output_dir = os.path.dirname(os.path.abspath(args.output))
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+            log_info(f"Created output directory: {output_dir}")
         compound_db.to_csv(args.output)
         
         log_info("Formation energies calculated successfully!")

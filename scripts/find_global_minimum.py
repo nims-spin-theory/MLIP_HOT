@@ -51,7 +51,7 @@ def load_csv_files(file_paths: List[str], labels: Optional[List[str]] = None) ->
         ValueError: If files cannot be read
     """
     if labels is None:
-        labels = [os.path.splitext(os.path.basename(fp))[0] for fp in file_paths]
+        labels = [fp for fp in file_paths]
     
     if len(labels) != len(file_paths):
         raise ValueError(f"Number of labels ({len(labels)}) must match number of files ({len(file_paths)})")
@@ -109,7 +109,7 @@ def get_global_minimum(dbs: Dict[str, pd.DataFrame],
     
     # Find minimum energy for each group
     if group_by_column:
-        log_info(f"Grouping by column: '{group_by_column}'")
+        log_info(f"The entries with same '{group_by_column}' are regarded as same compound")
         # Group by the specified column and find minimum
         grouped = combined.groupby(group_by_column)
         min_indices = grouped[energy_column].idxmin()
@@ -139,29 +139,29 @@ def get_global_minimum(dbs: Dict[str, pd.DataFrame],
 
 
 def print_summary_statistics(result_df: pd.DataFrame, energy_column: str) -> None:
-    """Print summary statistics about the results."""
-    print("\n" + "="*60)
-    print("SUMMARY STATISTICS")
-    print("="*60)
+    # """Print summary statistics about the results."""
+    # print("\n" + "="*60)
+    # print("SUMMARY STATISTICS")
+    # print("="*60)
     
-    if energy_column in result_df.columns:
-        energies = result_df[energy_column].dropna()
-        print(f"\nEnergy Statistics ({energy_column}):")
-        print(f"  Count:  {len(energies)}")
-        print(f"  Mean:   {energies.mean():.6f}")
-        print(f"  Std:    {energies.std():.6f}")
-        print(f"  Min:    {energies.min():.6f}")
-        print(f"  Max:    {energies.max():.6f}")
-        print(f"  Median: {energies.median():.6f}")
+    # if energy_column in result_df.columns:
+    #     energies = result_df[energy_column].dropna()
+    #     print(f"\nEnergy Statistics ({energy_column}):")
+    #     print(f"  Count:  {len(energies)}")
+    #     print(f"  Mean:   {energies.mean():.6f}")
+    #     print(f"  Std:    {energies.std():.6f}")
+    #     print(f"  Min:    {energies.min():.6f}")
+    #     print(f"  Max:    {energies.max():.6f}")
+    #     print(f"  Median: {energies.median():.6f}")
     
     if 'source' in result_df.columns:
-        print(f"\nSource Distribution:")
+        print("="*60)
+        print(f"Source Distribution:")
         source_counts = result_df['source'].value_counts()
         for source, count in source_counts.items():
             percentage = (count / len(result_df)) * 100
             print(f"  {source}: {count} ({percentage:.1f}%)")
-    
-    print("="*60 + "\n")
+        print("="*60 + "\n")
 
 
 def main():
@@ -173,11 +173,11 @@ def main():
     
     # Input options - either folder pattern or explicit files
     input_group = parser.add_mutually_exclusive_group(required=True)
-    input_group.add_argument("-f", "--folder", type=str,
-                           help="Path to folder containing CSV files (use with -p/--pattern)")
     input_group.add_argument("-i", "--input-files", nargs='+', type=str,
                            help="Explicit list of CSV file paths")
-    
+
+    input_group.add_argument("-f", "--folder", type=str,
+                           help="Path to folder containing CSV files (use with -p/--pattern)")
     parser.add_argument("-p", "--pattern", type=str,
                        help="Glob pattern for CSV files (e.g., 'formE_*.csv'). Required with -f.")
     
@@ -189,7 +189,7 @@ def main():
     parser.add_argument("--energy-column", type=str, default="Energy (eV/atom)",
                        help="Name of the column containing energy values")
     parser.add_argument("--group-by-column", type=str, default=None,
-                       help="Column name to group by (default: use index)")
+                       help="Column name used to identify the compound, i.e. rows with same value are compared to determine the ground state  (default: use index)")
     
     # Optional features
     parser.add_argument("--labels", nargs='+', type=str,
@@ -237,6 +237,10 @@ def main():
         
         # Save results
         log_info(f"Saving results to: {args.output}")
+        output_dir = os.path.dirname(os.path.abspath(args.output))
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+            log_info(f"Created output directory: {output_dir}")
         result.to_csv(args.output)
         
         # Print summary

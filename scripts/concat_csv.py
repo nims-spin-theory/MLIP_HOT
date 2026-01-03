@@ -172,6 +172,10 @@ def main():
         log_info("Sorting and saving results...")
         if not args.reset_index:
             combined_df = combined_df.sort_index()
+        output_dir = os.path.dirname(os.path.abspath(args.output))
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+            log_info(f"Created output directory: {output_dir}")
         combined_df.to_csv(args.output)
         
         log_info("CSV concatenation completed successfully!")
