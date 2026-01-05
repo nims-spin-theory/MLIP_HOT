@@ -21,4 +21,4 @@ optimize:
 #  primitive_cell_conversion:    # Whether to convert to primitive cell before optimization
 #  checkpoint_path:              # Checkpoint path if MLIP requires (e.g. eqV2,esen)
 #  fix_symmetry: True/False      # Apply ASE FixSymmetry constraint during relaxation (default: False).
-#  print_col:    string          # If set, prints the local row number and this column's value for each record before relaxation.
+#  print_col:    string          # If set, prints the local row number and this column's value is printed to show the progress.

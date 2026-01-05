@@ -84,7 +84,7 @@ We show examples covering:
 3. Separate the job across multiple nodes for efficiency.
 4. Determine the global minimum using multiple initial structures.
 5. Generate input file from POSCAR, CIF, or numbers
-
+6. Intro to some useful flags.
 
 ### 1. Quick Start: A simple example running all three tasks at once.
 
@@ -350,6 +350,14 @@ df_structures = pd.DataFrame(data_list)
 output_csv_path = "generated_structures.csv"
 df_structures.to_csv(output_csv_path, index=False)
 ```
+
+### 5. Intro to some useful flags
+#### `fix_symmetry`
+During structure optimization, the symmetry is not preserved by default. To enable the symmetry preservation, please add the flag `--optimize.fix_symmetry True` . 
+
+#### `print_col`
+Using `--optimize.print_col <column name>`,  the code prints the local row number and this column's value to show the progress of the optimization task. This is useful for debug purpose.
+
 
 ## MLIP Package Installation
 
