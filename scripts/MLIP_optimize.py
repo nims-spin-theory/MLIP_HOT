@@ -346,6 +346,7 @@ def opt_loop_row(
     symmetrize: bool = False,
     checkpoint_path: Optional[str] = None,
     fix_symmetry: bool = False,
+    print_col: Optional[str] = None,
 ) -> List:
     """
     Perform optimization loop on local data structures.
@@ -364,7 +365,14 @@ def opt_loop_row(
     calc = create_calculator(model, checkpoint_path)
     local_results = []
     
-    for row in local_data:
+    for local_row_idx, row in enumerate(local_data):
+        if print_col is not None:
+            # Helpful per-structure trace (works with MPI; output may interleave).
+            value = row.get(print_col, None) if isinstance(row, dict) else None
+            print(
+                f"[INFO] [Process {rank}/{size}] Row {local_row_idx}: {print_col}={value}",
+                flush=True
+            )
         try:
             structure, spacegroup_symbol = get_structure(row)
             
@@ -533,6 +541,13 @@ def main():
         help="Apply ASE FixSymmetry constraint during relaxation (default: disabled).",
     )
 
+    parser.add_argument(
+        "--print-col",
+        type=str,
+        default=None,
+        help="If set, prints the local row number and this column's value for each record before relaxation.",
+    )
+
     args = parser.parse_args()
     try:
         print_mpi_info(rank, size)
@@ -627,6 +642,7 @@ def main():
         args.primitive_cell_conversion,
         args.checkpoint_path,
         fix_symmetry=args.fix_symmetry,
+        print_col=args.print_col,
     )
     
     # Gather results from all processes

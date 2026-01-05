@@ -34,6 +34,7 @@ YAML config schema (minimal):
         output: "../example/example_result"  # directory
         size: 1
         rank: 0
+        print_col: null  # optional: print per-row identifier from this column
         strain: "0.0"  # scalar or matrix string
         primitive_cell_conversion: false
         fix_symmetry: false
@@ -285,6 +286,9 @@ def run_optimize(cfg: Dict[str, Any], global_mpi_nproc: Optional[int], print_com
         cmd += ["--primitive-cell-conversion"]
     if bool(cfg.get("fix_symmetry", False)):
         cmd += ["--fix-symmetry"]
+    print_col = cfg.get("print_col")
+    if print_col:
+        cmd += ["--print-col", str(print_col)]
     if checkpoint_path:
         cmd += ["--checkpoint_path", checkpoint_path]
     return run_cmd(cmd, print_commands, dry_run)
@@ -395,6 +399,13 @@ def main() -> int:
     opt_grp.add_argument("--opt.size", "--optimize.size", dest="opt_size", type=int, help="Number of chunks for separate jobs")
     opt_grp.add_argument("--opt.rank", "--optimize.rank", dest="opt_rank", type=int, help="Chunk number for this job")
     opt_grp.add_argument("--opt.strain", "--optimize.strain", dest="opt_strain", type=str, help="Strain (scalar or 3x3 matrix string)")
+    opt_grp.add_argument(
+        "--opt.print_col",
+        "--optimize.print_col",
+        dest="opt_print_col",
+        type=str,
+        help="Forwarded to optimizer as --print-col (prints local row number + this column's value).",
+    )
     opt_grp.add_argument("--opt.primitive_cell_conversion", dest="opt_primitive_cell_conversion", action="store_true", help="Convert to primitive cell before optimization")
     opt_grp.add_argument(
         "--opt.fix_symmetry",
@@ -510,6 +521,8 @@ def main() -> int:
         optimize_cfg["rank"] = int(args.opt_rank)
     if args.opt_strain is not None:
         optimize_cfg["strain"] = args.opt_strain
+    if args.opt_print_col is not None:
+        optimize_cfg["print_col"] = args.opt_print_col
     if args.opt_primitive_cell_conversion:
         optimize_cfg["primitive_cell_conversion"] = True
     if args.opt_fix_symmetry is not None:
