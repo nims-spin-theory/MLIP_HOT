@@ -339,7 +339,14 @@ def create_calculator(model: str, checkpoint_path: Optional[str] = None) -> Calc
         raise ImportError(f"Could not import calculator for model '{model}': {e}") from e
 
 
-def opt_loop_row(local_data: List, model: str, strain: List[float] = None, symmetrize: bool = False, checkpoint_path: Optional[str] = None) -> List:
+def opt_loop_row(
+    local_data: List,
+    model: str,
+    strain: List[float] = None,
+    symmetrize: bool = False,
+    checkpoint_path: Optional[str] = None,
+    fix_symmetry: bool = False,
+) -> List:
     """
     Perform optimization loop on local data structures.
     
@@ -349,6 +356,7 @@ def opt_loop_row(local_data: List, model: str, strain: List[float] = None, symme
         strain: Strain values to apply [x, y, z]
         symmetrize: Whether to convert structures to primitive cell
         checkpoint_path: Path to checkpoint file (required for eqV2 and esen_30m_oam models)
+        fix_symmetry: Whether to preserve symmetry during optimization
         
     Returns:
         List of optimization results for each structure
@@ -373,7 +381,7 @@ def opt_loop_row(local_data: List, model: str, strain: List[float] = None, symme
             
             # Convert to ASE and optimize
             atoms = AseAtomsAdaptor.get_atoms(structure)
-            atoms_opt = opt_with_symmetry_mod(atoms, calc, fix_symmetry=True)
+            atoms_opt = opt_with_symmetry_mod(atoms, calc, fix_symmetry=fix_symmetry)
             final_structure = AseAtomsAdaptor.get_structure(atoms_opt)
             
             # Extract results
@@ -515,6 +523,16 @@ def main():
              "Example: './fairchem_checkpoints/eqV2_31M_omat.pt'"
     )
 
+    # Control symmetry constraint during optimization.
+    # If provided: enable FixSymmetry. If omitted: do not constrain symmetry.
+    parser.add_argument(
+        "--fix-symmetry",
+        dest="fix_symmetry",
+        action="store_true",
+        default=False,
+        help="Apply ASE FixSymmetry constraint during relaxation (default: disabled).",
+    )
+
     args = parser.parse_args()
     try:
         print_mpi_info(rank, size)
@@ -589,6 +607,11 @@ def main():
             print("[INFO] The atom coordinations will be adjusted accordingly.")
         if args.primitive_cell_conversion:
             print("[INFO] Structures will be converted to primitive cell by spglib before optimization.")
+        if args.fix_symmetry:
+            print("[INFO] Symmetry will be preserved during optimization (FixSymmetry enabled).")
+        else:
+            print("[INFO] Symmetry will NOT be constrained during optimization (FixSymmetry disabled).")
+        print("[INFO] " + "="*40)
         print("[INFO] The initial structures for relaxation (possibly strained or converted to primitive cell) will be written to columns 'initial_cell', 'initial_positions', and 'initial_numbers'.")
         print("[INFO] Optimized structures will be written to 'optimized_cell', 'optimized_positions', and 'optimized_numbers'.")
         print("[INFO] Energies will be written to 'Energy (eV/atom)' and formulas to 'optimized_formula'.")
@@ -597,7 +620,14 @@ def main():
     local_data = scatter_dataframe(db_chunk)
 
     print(f"[INFO] [Process {rank}/{size}] Starting optimization of {len(local_data)} compounds with model {args.model}.")
-    local_results = opt_loop_row(local_data, args.model, args.strain, args.primitive_cell_conversion, args.checkpoint_path)
+    local_results = opt_loop_row(
+        local_data,
+        args.model,
+        args.strain,
+        args.primitive_cell_conversion,
+        args.checkpoint_path,
+        fix_symmetry=args.fix_symmetry,
+    )
     
     # Gather results from all processes
     gathered_results = comm.gather(local_results, root=0)

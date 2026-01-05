@@ -43,9 +43,6 @@ This toolkit supports the following Machine Learning Interatomic Potential model
   - `7net-mf-ompa` 
 - **MatterSim**: `mattersim` 
 - **EquiformerV2 (OMAT)**:
-  - `eqV2_31M_omat` 
-  - `eqV2_86M_omat` 
-  - `eqV2_153M_omat` 
   - `eqV2_31M_omat_mp_salex` 
   - `eqV2_86M_omat_mp_salex` 
   - `eqV2_153M_omat_mp_salex` 

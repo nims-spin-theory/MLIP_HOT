@@ -36,6 +36,7 @@ YAML config schema (minimal):
         rank: 0
         strain: "0.0"  # scalar or matrix string
         primitive_cell_conversion: false
+        fix_symmetry: false
         checkpoint_path: null
         # mpi_nproc: 4  # optional per-stage override
 
@@ -79,6 +80,20 @@ from typing import Dict, Any, List, Optional
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PYTHON_EXE = sys.executable or "python"
+
+
+def str2bool(v):
+    """Parse common boolean strings for argparse."""
+    if isinstance(v, bool):
+        return v
+    if v is None:
+        return None
+    s = str(v).strip().lower()
+    if s in {"true", "t", "1", "yes", "y", "on"}:
+        return True
+    if s in {"false", "f", "0", "no", "n", "off"}:
+        return False
+    raise argparse.ArgumentTypeError(f"Expected a boolean (true/false), got: {v}")
 
 
 def resolve_path(p: Optional[str], base: Optional[str] = None) -> Optional[str]:
@@ -268,6 +283,8 @@ def run_optimize(cfg: Dict[str, Any], global_mpi_nproc: Optional[int], print_com
         cmd += ["--strain", str(strain)]
     if bool(cfg.get("primitive_cell_conversion", False)):
         cmd += ["--primitive-cell-conversion"]
+    if bool(cfg.get("fix_symmetry", False)):
+        cmd += ["--fix-symmetry"]
     if checkpoint_path:
         cmd += ["--checkpoint_path", checkpoint_path]
     return run_cmd(cmd, print_commands, dry_run)
@@ -379,6 +396,14 @@ def main() -> int:
     opt_grp.add_argument("--opt.rank", "--optimize.rank", dest="opt_rank", type=int, help="Chunk number for this job")
     opt_grp.add_argument("--opt.strain", "--optimize.strain", dest="opt_strain", type=str, help="Strain (scalar or 3x3 matrix string)")
     opt_grp.add_argument("--opt.primitive_cell_conversion", dest="opt_primitive_cell_conversion", action="store_true", help="Convert to primitive cell before optimization")
+    opt_grp.add_argument(
+        "--opt.fix_symmetry",
+        "--optimize.fix_symmetry",
+        dest="opt_fix_symmetry",
+        type=str2bool,
+        default=None,
+        help="Enable/disable FixSymmetry constraint during optimization (True/False).",
+    )
     opt_grp.add_argument("--opt.checkpoint_path", "--optimize.checkpoint_path", dest="opt_checkpoint_path", type=str, help="Checkpoint path for eqV2/esen models")
     opt_grp.add_argument("--opt.mpi_nproc", "--optimize.mpi_nproc", dest="opt_mpi_nproc", type=int, help="MPI process count for optimize stage (MPI enabled when nproc>1)")
 
@@ -487,6 +512,8 @@ def main() -> int:
         optimize_cfg["strain"] = args.opt_strain
     if args.opt_primitive_cell_conversion:
         optimize_cfg["primitive_cell_conversion"] = True
+    if args.opt_fix_symmetry is not None:
+        optimize_cfg["fix_symmetry"] = bool(args.opt_fix_symmetry)
     if args.opt_checkpoint_path:
         optimize_cfg["checkpoint_path"] = args.opt_checkpoint_path
     if args.opt_mpi_nproc is not None:
