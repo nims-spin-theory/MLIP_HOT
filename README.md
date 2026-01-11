@@ -463,6 +463,11 @@ where:
 - $E_\text{form}^\text{(hull)}$: formation energy of the thermodynamically stable phase (or mixture of phases) at that composition, i.e., the energy on the convex hull.
 
 
+## Questions & Issues
+
+If you have any question, problem, or bug, please open an issue in this repository. Providing your environment details and a minimal reproducible example helps us investigate faster.
+
+
 ## Citation
 
 If you use this toolkit in your research, please cite:
@@ -479,7 +484,10 @@ If you use this toolkit in your research, please cite:
 }
 ```
 
-Additionally, please cite the specific MLIP models you use in your work. Refer to the official documentation and publications for each model listed in the **Available MLIP Models** section.
+Please cite the specific MLIP models you use in your work. Refer to the official documentation for each model listed in the **Available MLIP Models** section.
+
+If hull distance calculation is performed, please also cite the OQMD database following the official documents https://oqmd.org/documentation/publications. 
+
 
 
 ## Troubleshooting
