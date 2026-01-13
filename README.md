@@ -111,7 +111,7 @@ conda activate MLIP_mattersim
 # set path to the entry script
 MLIP_HOT=../scripts/MLIP_HOT.py
 # start computation described in the config file
-python $MLIP_HOT -c pipeline.yaml 
+python $MLIP_HOT -c config1_pipeline.yaml 
 ```
 If the example folder is copied to another place or the code is used in real practice, please change `MLIP_HOT=../scripts/MLIP_HOT.py` to the absolute path to `MLIP_HOT.py` on your computer.
 
@@ -383,15 +383,8 @@ conda activate MLIP_7net
 pip install sevenn
 ```
 
-### MatterSim
+Note: The values in reference file of this model are derived from DFT-relaxed structures.
 
-Website: https://github.com/microsoft/mattersim
-
-```bash
-conda create -n MLIP_mattersim python=3.9
-conda activate MLIP_mattersim
-pip install mattersim
-```
 
 ### HIENet
 
@@ -409,11 +402,26 @@ cd AIRS/OpenMat/HIENet
 pip install .
 ```
 
+Note: The values in reference file of this model are derived from DFT-relaxed structures.
+
+
 **Troubleshooting**: If you encounter the error `OSError: /lib64/libstdc++.so.6: version 'GLIBCXX_3.4.29' not found`, run:
 
 ```bash
 conda install -c conda-forge libstdcxx-ng
 ```
+
+
+### MatterSim
+
+Website: https://github.com/microsoft/mattersim
+
+```bash
+conda create -n MLIP_mattersim python=3.9
+conda activate MLIP_mattersim
+pip install mattersim
+```
+
 
 ### EquiformerV2 and eSEN
 
