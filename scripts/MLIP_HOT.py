@@ -126,7 +126,7 @@ def get_reference_db_paths_for_model(model: Optional[str]) -> Dict[str, str]:
         """
         if not model:
                 return {}
-        m = str(model).strip().lower()
+        m = str(model).strip()
         base_ref_dir = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "referenceDB"))
         elements_csv = os.path.join(base_ref_dir, f"OQMD_{m}_elements.csv")
         convex_csv = os.path.join(base_ref_dir, f"OQMD_{m}_convex_hull.csv")

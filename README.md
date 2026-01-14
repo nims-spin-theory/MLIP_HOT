@@ -2,32 +2,29 @@
 
 # MLIP-based High-throughput Optimization and Thermodynamics (MLIP-HOT)
 
-A comprehensive toolkit for Machine Learning Interatomic Potential (MLIP) based calculations, including structural optimization, formation energy evaluation and convex hull analysis. This toolkit focuses on building a high-throughput pipeline for computational material discovery. Key advantages of this toolkit are its ease of use and high performance.
+MLIP-HOT is a comprehensive toolkit for universal Machine Learning Interatomic Potential (MLIP) based calculations, including structure optimization, formation energy calculation, and distance above convex hull calculation. This toolkit focuses on building a high-throughput pipeline for computational material discovery.
 
-The method is described and demonstrated in our paper:
-https://arxiv.org/abs/2508.20556. If you use or extend MLIP-HOT, please cite this work.
+The method is described and demonstrated in our paper: https://arxiv.org/abs/2508.20556. If you use or extend MLIP-HOT, please cite this work.
 
 
 ## Overview
 
 This code can do:
-- **Structural Optimization**: Optimize crystal structures using various MLIPs (CHGNet, MatterSim, eSEN-30M-OAM, etc.)
-- **Formation Energy Calculation**: Calculate formation energies using MLIP
-- **Convex Hull Analysis**: Calculate distance to convex hull using MLIP
+- **Structure Optimization**: Optimize crystal structures using various MLIPs (CHGNet, MatterSim, eSEN-30M-OAM, etc.)
+- **Formation Energy Calculation**: Calculate formation energies using MLIP-derived reference energies
+- **Convex Hull Analysis**: Calculate distance to convex hull using MLIP-derived reference energies
 
 This repository also contains useful scripts for:
-- **HTP Structure Generation**: Generate structures for screening compositions from a POSCAR or CIF input
-- **Determine Global Minimum**: Determine the global minimum from several local minima.
+- **HTP Structure Generation**: Generate structures for screening compositions from a POSCAR, CIF, or numbers as input
+- **Determine Global Minimum**: Determine the global minimum among local minima
   
 #### Key Features
 
 - **MPI Parallelization**: Efficient processing of large datasets through distributed computing
 - **Flexible Job Distribution**: Submit dataset chunks separately across multiple computing resources
 - **Global Minimum Determination**: Identify the lowest-energy structure from multiple optimization runs with different initial configurations
-- **Formation Energy Calculations**: Compute formation energies using MLIP-derived reference energies
-- **Convex Hull Distance Analysis**: Compute distance to convex hull using MLIP-derived reference energies
-- **High-Quality Reference Structures**: Utilize DFT-optimized structures from OQMD as initial configurations for reference energy calculations
-- **Relax from different initial structures perturbed strain**: Apply strain to structures before optimization is started.
+- **Precomputed Reference Energies**: Reference energies for formation energy and hull distance calculation are precomputed, thus formation energy and hull distance calculations take negligible time cost. The reference energies were obtained by relaxing structures in OQMD database using various MLIPs. 
+- **Relax from different initial structures by applying strain**: Apply strain to structures before optimization starts.
 - **Primitive Cell Conversion**: The structure can be converted to primitive cell before optimization to improve efficiency
 - **No GPU device is required**: This toolkit applies pre-trained MLIPs and can run efficiently on CPU.
 
@@ -57,7 +54,7 @@ The toolkit is designed with modularity in mind, allowing new MLIP models to be 
 
 ## Prerequisites
 
-Before using this toolkit, you need to have **Miniconda** or **Anaconda** installed on your system. Miniconda is a minimal installer for conda, which is used to create isolated Python environments for different MLIP models.
+Before using this toolkit, you need to have **Miniconda** or **Anaconda** installed on your system. They are used to create isolated Python environments for different MLIP models.
 
 **Installing Miniconda:**
 
@@ -75,7 +72,7 @@ Once conda is installed, you can create separate environments for each MLIP mode
 
 ## Usage
 
-MLIP-HOT provides a single entrypoint (`scripts/MLIP_HOT.py`) to run the full pipeline (Structure optimization → Formation energy → Distance above convex hull) or any individual stage using YAML configs. 
+MLIP-HOT provides a single entry point (`scripts/MLIP_HOT.py`) to run the full pipeline (Structure optimization → Formation energy → Distance above convex hull) or any individual stage using YAML configs. 
 
 We show examples covering:
 
@@ -85,6 +82,8 @@ We show examples covering:
 4. Determine the global minimum using multiple initial structures.
 5. Generate input file from POSCAR, CIF, or numbers
 6. Intro to some useful flags.
+
+All input files are included in `example`.
 
 ### 1. Quick Start: A simple example running all three tasks at once.
 
@@ -96,13 +95,13 @@ This example uses `MatterSim` MLIP. To create the conda environment and install 
    conda activate MLIP_mattersim
    pip install mattersim
    ```
- Installation instructions for other MLIPs are provided in the **MLIP Package Installation** section. We recommend installing each MLIP package in a separate conda environment. For the examples below using `mattersim`:
+ Installation instructions for other MLIPs are provided in the **MLIP Package Installation** section. We recommend installing each MLIP package in a separate conda environment. 
 
 #### Structure optimization, formation energy, and hull distance calculation
 
-An example input containing 10 compounds is included in the `example` directory.  This dataset is obtained from the [DXMag Computational HeuslerDB](https://www.nims.go.jp/group/spintheory/database/). Pre-computed results are also included to help verify your installation and compare outputs. 
+An example input containing 10 compounds is included in the `example` directory.  This dataset is obtained from the [DXMag Computational HeuslerDB](https://www.nims.go.jp/group/spintheory/database/). Pre-computed results are also included to help verify installation and compare outputs. 
 
-Move into the `example` folder and perform the example calculation as below. This example should be finished within a few minutes on you personal computer.
+Move into the `example` folder and perform the example calculation as follows. This example should be finished within a few minutes on your personal computer.
 
 ```bash
 # activate env if it is not activated
@@ -115,10 +114,10 @@ python $MLIP_HOT -c config1_pipeline.yaml
 ```
 If the example folder is copied to another place or the code is used in real practice, please change `MLIP_HOT=../scripts/MLIP_HOT.py` to the absolute path to `MLIP_HOT.py` on your computer.
 
-> 💡 Quick Fix: If you meet an error message about a missing module, please install it. For example, if module `pyyaml` is missing, please do `pip install pyyaml` .
+> 💡 If you encounter an error message about a missing module, please install it. For example, if module `pyyaml` is missing, please do `pip install pyyaml` .
 
 
-All settings are controlled by the config file `pipeline.yaml`. Now, let's explain the content in this config file. 
+All settings are controlled by the config file `config1_pipeline.yaml`. Now, let's explain the content in this config file. 
 
 ```yaml
 # Select task: pipeline | optimize | form | hull
@@ -147,11 +146,11 @@ The `input` file must include the columns `cell`, `positions`, and `numbers`, wh
   
 We also provide a script which generates input csv file from POSCAR file, CIF file, or numbers (see example 5). 
 
-The toolkit writes the following output columns: `optimized_formula`, `optimized_cell`, `optimized_positions`, `optimized_numbers`, `Energy (eV/atom)`, `Formation Energy (eV/atom)`, and `Hull Distance (eV/atom)`. Progress and details are printed during execution. Outputs are appended as new columns and all original columns are preserved. We recommend including identifier columns such as `formula`, `composition`, or `ID` in the input file.
+The toolkit writes the following output columns: `optimized_formula`, `optimized_cell`, `optimized_positions`, `optimized_numbers`, `Energy (eV/atom)`, `Formation Energy (eV/atom)`, and `Hull Distance (eV/atom)` into csv files. Progress and details are printed during execution. Outputs are appended as new columns and all original columns are preserved. We recommend including identifier columns such as `formula`, `composition`, or `ID` in the input file.
 
-Another example input contaning 100 compounds is included in `example/more_input` , and the MLIP result is included in `example/results`. The top 10 rows of the result are also the results of the example of 10 compounds. The results by DFT are also included for comparison.
+Another example input containing 100 compounds is included in `example/more_input` , and the MLIP result is included in `example/results`. The top 10 rows of the result are the results of the example of 10 compounds. The results by DFT are also included for comparison.
 
-The following comparison figure of MatterSim MLIP and DFT results are generated using jupyter notebook `example/results/analysis.ipynb`.
+The following comparison figures of MatterSim MLIP and DFT results are generated using the Jupyter notebook `example/results/analysis.ipynb`.
 
 ![alt text](example/results/dft_vs_ml_mattersim.png)
 
@@ -170,8 +169,6 @@ python $MLIP_HOT \
     --opt.input ./example.csv \
     --opt.output ./example_result_task1 
 ```
-
-The optimized structures, formation energies, and hull distances are written to files in `example_result`.
 
 >  💡Tip: You can use both a config file and CLI; CLI values overwrite config values.
 
@@ -216,9 +213,9 @@ python $MLIP_HOT -c config2_single_task_form.yaml
 python $MLIP_HOT -c config2_single_task_hull.yaml
 ```  
 
-The same task can also be performed using equivalent CLI:
+The same task can also be performed using the equivalent CLI:
 
-``` bash
+```bash
 python $MLIP_HOT \
     --task optimize \
     --model mattersim \
@@ -227,15 +224,15 @@ python $MLIP_HOT \
     --optimize.output example_result_task2
 ```
 
-``` bash
+```bash
 python $MLIP_HOT \
     --task form \
     --model mattersim \
-    --form.input  example_result_task1/structure_optimization_result.csv \
+    --form.input  example_result_task2/structure_optimization_result.csv \
     --form.output example_result_task2/form_result.csv
 ```
 
-``` bash
+```bash
 python $MLIP_HOT \
     --task hull \
     --model mattersim \
@@ -245,11 +242,11 @@ python $MLIP_HOT \
 ```
 
 ### 3. Separate the job across multiple nodes for efficiency.
-In high-throughput research, the number of screened compounds is often very large. In `pipeline` or `optimize` task, it is more efficient to divide the input database into several chunks and run each chunk separately on multiple computation nodes. For example, divide the input to 20 chunks, run each chunk on one computer, and concatenate all results at the end. 
+In high-throughput research, the number of screened compounds is often very large. In `pipeline` or `optimize` task, it is more efficient to divide the input database into several chunks and run chunks separately on multiple nodes. For example, divide the input into 20 chunks, run each chunk on one computer, and concatenate all results at the end. 
 
 This can be performed using  `optimize.size` and `optimize.rank` flags: `size` specifies the number of chunks to generate, and `rank` specifies which chunk to process in the current calculation (from $0$ to $N_{size}-1$).
 
-An example using 3 chunks is included in `example`: 
+An example using 3 chunks: 
 
 ```bash
 conda activate MLIP_mattersim 
@@ -259,9 +256,9 @@ python $MLIP_HOT -c config3_size_rank.yaml --optimize.size 3 --optimize.rank 0
 python $MLIP_HOT -c config3_size_rank.yaml --optimize.size 3 --optimize.rank 1
 python $MLIP_HOT -c config3_size_rank.yaml --optimize.size 3 --optimize.rank 2
 ```
-Please note that the config file is same as example 1. Just adding `size` and `rank` in CLI.
+Please note that the config file is the same as example 1, just adding `size` and `rank` in CLI.
 
-After all chunks are calculated, results can be concatenated using script `../script/concat_csv.py`.
+After all chunks are calculated, results can be concatenated using script `../scripts/concat_csv.py`.
 ```bash
 # Concatenate results from multiple chunks
 python ../scripts/concat_csv.py \
@@ -281,11 +278,11 @@ The script can concatenate any files with names following pattern `XX_{size}_{ra
 > 💡 Tip: The script `concat_csv.py` works for output of `pipeline` task and `optimize` task.
 
 ### 4. Determine the global minimum using multiple initial structures.
-A compound might have several local minima, and only the global minimum is the true ground state. In such compound, different initial structures can relax to distinct local minima with different energies. The ground state is identified by selecting the lowest-energy structure. The same situation also happens in DFT-based optimization.
+A compound might have several local minima, and only the global minimum is the true ground state. In such case, different initial structures can relax to distinct local minima with different energies. The ground state is identified by selecting the lowest-energy structure. The same situation also happens in DFT-based optimization.
 
-One way to do this is preparing multiple CSV files with different initial structures and running structure optimization on each. 
+One way to do this is to prepare multiple CSV files with different initial structures and run structure optimization on each. 
 
-Another way is to apply different strains to the structure to generate different initial structures before relaxation. MLIP-HOT can do this easily using the `strain` flag. The strain can be either a scalar (Isotropic strain) or 3x3 matrix (Anisotropic strain). The generated structures before relaxation are also written to output.
+Another way is to apply different strains to the structure to generate different initial structures before relaxation. MLIP-HOT can do this easily using the `strain` flag. The strain can be either a scalar (isotropic strain) or 3x3 matrix (anisotropic strain). The generated structures are also written to output.
 
 We provide a simple example doing this:
 
@@ -297,14 +294,14 @@ MLIP_HOT=/Users/xiaoenda/WORK/y_git_repo/MLIP_HOT/scripts/MLIP_HOT.py
 python $MLIP_HOT -c config4_strain.yaml --optimize.strain "[[0.1, 0.1, 0.0], [0.1, -0.1, 0.0], [0.0, -0.1, 0.0]]" --optimize.output example_result_task4/strain2
 ```
 > 💡 Tip: This feature can be combined with `size` and `rank` demonstrated previously.
-> i.e. For each strain, use `size` and `rank` to divide input to several chunks and do concatenation after relaxation
+> i.e. For each strain, use `size` and `rank` to divide input into several chunks and concatenate results after relaxation
 
 
 After all calculations are finished, the global minimum can be identified using the script `find_global_minimum.py`.
 
 ```bash
 # Find global minimum energies across multiple result files
-python  /Users/xiaoenda/WORK/y_git_repo/MLIP_HOT/scripts/find_global_minimum.py \
+python  ../scripts/find_global_minimum.py \
     -i example_result_task4/strain1/hull_distance.csv \
        example_result_task4/strain2/hull_distance.csv \
     -o example_result_task4/global_min.csv \
@@ -312,8 +309,8 @@ python  /Users/xiaoenda/WORK/y_git_repo/MLIP_HOT/scripts/find_global_minimum.py 
     --group-by-column "composition" 
 
 # Flags:
-#   -i, --input:       Multiple input CSV files to compare (space-separated list)
-#   -o, --output:      Output file containing ground state structures
+#   -i, --input:       Multiple CSV files to compare (space-separated list)
+#   -o, --output:      Output file containing global minimum
 #   --energy-column:   Name of the column containing energy values (default: Energy (eV/atom))
 #   --group-by-column: Column name used to identify the compound, (default: use index) 
 #                      i.e. entries with same value are regarded as the same compound.
@@ -327,10 +324,10 @@ For more features of this script, please run `python ../scripts/find_global_mini
 
 We provide a simple example in `example/generate_input` demonstrating how to generate input files. The example loads structures from POSCAR, CIF, or numbers, then creates new structures by replacing atoms with different elements. The resulting structures are saved to a CSV file that can be used directly as input to MLIP-HOT. We hope this example will help you create scripts tailored to your specific use case. To keep this document concise, detailed explanations are included in the notebook itself rather than here.  
 
-For users working with `pymatgen` structures, input files can be generated from a list of structures using the code block below. Users more familiar with `ASE` and `phonopy` can easily convert those structures to pymatgen format using functions in `pymatgen` module.
+For users working with `pymatgen` structures, input files can be generated from a list of `structure` objects using the code block below. Users more familiar with `ASE` and `phonopy` can easily convert those structures to Pymatgen format using adapter functions in the `pymatgen` module.
 
 ``` python
-# structures_list contains pymatgen structures
+# structures_list contains pymatgen structure objects
 data_list = []
 for idx, modified_structure in enumerate(structures_list):
     cell      = str(modified_structure.lattice.matrix.tolist())
@@ -351,12 +348,12 @@ output_csv_path = "generated_structures.csv"
 df_structures.to_csv(output_csv_path, index=False)
 ```
 
-### 5. Intro to some useful flags
+### 6. Intro to some useful flags
 #### `fix_symmetry`
 During structure optimization, the symmetry is not preserved by default. To enable the symmetry preservation, please add the flag `--optimize.fix_symmetry True` . 
 
 #### `print_col`
-Using `--optimize.print_col <column name>`,  the code prints the local row number and this column's value to show the progress of the optimization task. This is useful for debug purpose.
+Using `--optimize.print_col <column name>`,  the code prints the local row number and this column's value to show the progress of the optimization task. This is useful for debugging.
 
 
 ## MLIP Package Installation
@@ -383,7 +380,7 @@ conda activate MLIP_7net
 pip install sevenn
 ```
 
-Note: The values in reference file of this model are derived from DFT-relaxed structures.
+Note: Due to convergence problem, the values in the reference file of this model were calculated using MLIP and structures in OQMD without MLIP-based optimization.
 
 
 ### HIENet
@@ -402,7 +399,7 @@ cd AIRS/OpenMat/HIENet
 pip install .
 ```
 
-Note: The values in reference file of this model are derived from DFT-relaxed structures.
+Note: Due to convergence problem, the values in the reference file of this model were calculated using MLIP and structures in OQMD without MLIP-based optimization.
 
 
 **Troubleshooting**: If you encounter the error `OSError: /lib64/libstdc++.so.6: version 'GLIBCXX_3.4.29' not found`, run:
@@ -452,17 +449,18 @@ mpirun -np 10 python ../scripts/MLIP_optimize.py \
 ## Thermodynamic Stability Metrics: Formation Energy and Convex Hull
 ### 1. Formation Energy Calculation
 
-The **formation energy** of a compound is a thermodynamic quantity that measures the energy change when the compound is formed from its constituent elements in their standard reference states. It provides insight into the **stability** of a material — lower (more negative) formation energy generally indicates a more stable compound.
+The **formation energy** of a compound is a thermodynamic quantity that measures the energy change when the compound is formed from its constituent elements in their standard reference states. It provides insight into the **thermodynamic stability** of a material — lower (more negative) formation energy generally indicates a more stable compound.
 
-$$ E_\text{form} = E_{\text{compound}} - \sum_i n_i \mu_i $$
+$$ E_\text{form} = (E_{\text{compound}} - \sum_i n_i \mu_i ) /n $$
 where:  
 - $E_{\text{compound}}$: energy of the compound   
 - $n_i$: number of atoms of element $i$ in the compound  
-- $\mu_i$: chemical potential (typically the energy per atom) of element $i$.
+- $\mu_i$: energy of element $i$ (per atom).
+- $n$: number of atoms in compound, thus the unit is (eV/atom)
 
 ### 2. Distance above Convex Hull
 
-The **distance to the convex hull** measures how far a compound's formation energy lies above the thermodynamic stability limit defined by all possible competing phases in a chemical system. It quantifies how unstable a compound is relative to the most stable combinations of phases at the same composition. 
+The **distance to the convex hull** measures how far a compound's formation energy lies above the thermodynamic stability limit defined by all possible competing phases in a chemical system. It quantifies how unstable a compound is relative to the most stable combination of phases at the same composition. Lower values generally indicate higher stability: in principle, thermodynamically stable compounds have $E_\text{hull}=0$. In practice, finite-temperature effects and method uncertainty introduce deviations, so a tolerance is often used (e.g. $E_\text{hull} < 0.22 \text{eV/atom}$ is regarded as stable [in this work](https://doi.org/10.1016/j.actamat.2025.121312).)
 
 $$ E_\text{hull} = E_\text{form} - E_\text{form}^\text{(hull)} $$
 
@@ -473,12 +471,12 @@ where:
 
 ## Questions & Issues
 
-If you have any question, problem, or bug, please open an issue in this repository. Providing your environment details and a minimal reproducible example helps us investigate faster.
+If you have any questions, problems, or bugs, please open an issue in this repository. Providing your environment details and a minimal reproducible example helps us investigate faster.
 
 
 ## Citation
 
-If you use this toolkit in your research, please cite:
+If you use or extend this toolkit in your research, please cite:
 
 ```bibtex
 @misc{xiao2025accuratescreeningfunctionalmaterials,
@@ -492,9 +490,9 @@ If you use this toolkit in your research, please cite:
 }
 ```
 
-Please cite the specific MLIP models you use in your work. Refer to the official documentation for each model listed in the **Available MLIP Models** section.
+Please cite the specific MLIP models you use in your work. Refer to the official documentation for each model listed in the **MLIP Package Installation** section.
 
-If hull distance calculation is performed, please also cite the OQMD database following the official documents https://oqmd.org/documentation/publications. 
+If hull distance calculation is performed, please also cite the OQMD database following the official documentation: https://oqmd.org/documentation/publications. 
 
 
 
@@ -515,6 +513,6 @@ g++ --version
 
 ## [Extra] Scripts to Get Convex Hull Compounds Information via API
 
-To improve efficiency, we precomputed convex-hull compounds from OQMD and evaluated them using MLIPs. These results are stored as reference files, so convex-hull distances can be computed directly.
+To improve efficiency, we precomputed formation energies of convex-hull compounds in OQMD These results are stored as reference files, so convex-hull distances can be computed directly.
 
 Because the database continues to grow and reference-file updates may occasionally lag, we also provide scripts to retrieve convex-hull compounds from OQMD or the Materials Project (MP) via their APIs. For complete instructions, see [docs/get_convex_hull_compounds.md](docs/get_convex_hull_compounds.md)
