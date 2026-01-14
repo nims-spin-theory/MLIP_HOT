@@ -278,7 +278,7 @@ The script can concatenate any files with names following pattern `XX_{size}_{ra
 > 💡 Tip: The script `concat_csv.py` works for output of `pipeline` task and `optimize` task.
 
 ### 4. Determine the global minimum using multiple initial structures.
-A compound might have several local minima, and only the global minimum is the true ground state. In such case, different initial structures can relax to distinct local minima with different energies. The ground state is identified by selecting the lowest-energy structure. The same situation also happens in DFT-based optimization.
+A compound might have several local minima, and only the global minimum is the true ground state. In such case, we need to do multiple relaxations from different initial structures, and the lowest energy structure is selected as the ground state. The same situation also happens in DFT-based optimization.
 
 One way to do this is to prepare multiple CSV files with different initial structures and run structure optimization on each. 
 

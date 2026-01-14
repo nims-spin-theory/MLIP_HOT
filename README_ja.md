@@ -283,7 +283,7 @@ python ../scripts/concat_csv.py \
 
 ### 4. 複数初期構造からグローバル最小を決定
 
-化合物は複数の局所最小を持つことがあり、真の基底状態はグローバル最小です。異なる初期構造から緩和すると、異なる局所最小に落ちてエネルギーが変わることがあります。最も低いエネルギーの構造を選ぶことで基底状態を同定します。これは DFT 最適化でも同様に起こります。
+化合物は複数の局所極小を持つ場合があり、そのうち基底状態に対応するのは大域的最小値のみである。このような場合、異なる初期構造から複数回の構造緩和を行い、得られた構造の中で最もエネルギーの低いものを基底状態として選択する必要がある。同様の状況は、DFT に基づく構造最適化においても生じる。
 
 方法 1：初期構造が異なる複数の CSV を用意し、それぞれ最適化を実行。
 
@@ -314,7 +314,7 @@ python  ../scripts/find_global_minimum.py \
     --group-by-column "composition" 
 
 # オプション：
-#   -i, --input:       比較する複数の CSV ファイル（空白区切り）
+#   -i, --input:       比較する複数の CSV ファイル
 #   -o, --output:      グローバル最小を含む出力ファイル
 #   --energy-column:   エネルギー列名（既定：Energy (eV/atom)）
 #   --group-by-column: 化合物を識別する列名（既定：index を使用）
@@ -327,9 +327,9 @@ python  ../scripts/find_global_minimum.py \
 
 ### 5. POSCAR / CIF / 数字入力から入力ファイル生成
 
-`example/generate_input` に、入力ファイル生成の簡単な例があります。POSCAR / CIF / numbers から構造を読み込み、元素置換で新しい構造を生成し、CSV に保存して MLIP-HOT 入力として使えます。用途に合わせたスクリプト作成の参考になれば幸いです。簡潔さのため、詳細説明は notebook 内に記載しています。
+`example/generate_input` に、入力ファイル生成の簡単な例があります。POSCAR / CIF / numbers から構造を読み込み、元素置換で新しい構造を生成し、CSV に保存して MLIP-HOT 入力として使えます。用途に合わせたスクリプト作成の参考になれば幸いです。簡潔さのため、詳細説明は例に記載しています。
 
-`pymatgen` 構造を使うユーザーは、`structure` オブジェクトのリストから以下のコードで入力 CSV を作れます。`ASE` や `phonopy` のユーザーも、`pymatgen` のアダプタ関数で変換できます。
+`pymatgen` を使うユーザーは、`structure` オブジェクトのリストから以下のコードで入力 CSV を作れます。`ASE` や `phonopy` のユーザーも、`pymatgen` のアダプタ関数で変換できます。
 
 ``` python
 # structures_list は pymatgen の Structure オブジェクトのリスト
