@@ -116,7 +116,16 @@ python $MLIP_HOT -c config1_pipeline.yaml
 
 `example` フォルダを別の場所へコピーした場合や実運用で使う場合は、`MLIP_HOT=../scripts/MLIP_HOT.py` をあなたの環境にある `MLIP_HOT.py` の絶対パスに変更してください。
 
-> 💡 モジュール不足のエラーが出た場合はインストールしてください。例えば `pyyaml` が無ければ `pip install pyyaml`。
+> 💡 起こりうるバグとその対処法
+> モジュールが見つからないというエラーメッセージが表示された場合は、そのモジュールをインストールしてください。
+> 例えば、pyyaml や mpi4py モジュールが見つからない場合は、以下を実行してください。
+> pip install pyyaml または pip install mpi4py
+
+> 💡 起こりうるバグとその対処法
+> optimize タスクで以下のエラーが発生した場合：
+> Error processing structure: Optimizer.converged() missing 1 required positional argument: 'gradient'
+> これは ASE のバージョンに起因する問題です。以下のバージョンをインストールしてください。
+> pip install ase==3.24.0
 
 設定は `config1_pipeline.yaml` で制御します。内容は以下の通りです。
 

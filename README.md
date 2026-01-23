@@ -114,7 +114,17 @@ python $MLIP_HOT -c config1_pipeline.yaml
 ```
 If the example folder is copied to another place or the code is used in real practice, please change `MLIP_HOT=../scripts/MLIP_HOT.py` to the absolute path to `MLIP_HOT.py` on your computer.
 
-> 💡 If you encounter an error message about a missing module, please install it. For example, if module `pyyaml` is missing, please do `pip install pyyaml` .
+> 💡 Possible bug and fix 
+> If you encounter an error message about a missing module, please install it. 
+> For example, if module `pyyaml` or `mpi4py`is missing, please do 
+> `pip install pyyaml` or `pip install mpi4py` 
+
+> 💡 Possible bug and fix 
+> If `optimize` task met the error:
+> `Error processing structure: Optimizer.converged() missing 1 required positional argument: 'gradient'`
+> This is due to the ASE version, please install this version:
+> `pip install ase==3.24.0`
+
 
 
 All settings are controlled by the config file `config1_pipeline.yaml`. Now, let's explain the content in this config file. 
