@@ -2,20 +2,22 @@
 
 # MLIP-based High-throughput Optimization and Thermodynamics (MLIP-HOT)
 
-MLIP-HOT is a comprehensive toolkit for universal Machine Learning Interatomic Potential (MLIP) based calculations, including structure optimization, formation energy calculation, and distance above convex hull calculation. This toolkit focuses on building a high-throughput pipeline for computational material discovery.
+MLIP-HOT is a comprehensive toolkit for **universal Machine Learning Interatomic Potential (uMLIP) based calculations, including structure optimization, formation energy calculation, and distance above convex hull calculation**. This toolkit focuses on building a high-throughput pipeline for computational material discovery.
 
-The method is described and demonstrated in our paper: https://arxiv.org/abs/2508.20556. If you use or extend MLIP-HOT, please cite this work.
+We refer to this code as `MLIP-HOT`, and distinguish it from its companion [MLIP-FTL](https://github.com/nims-spin-theory/MLIP_FTL), which perform machine-learning regression model (MLRM) training and application, either from scratch or via transfer learning.
+
+This implementation and its applications are detailed in our research paper: [arXiv:2508.20556](https://arxiv.org/abs/2508.20556). If you use this code or derive work from it in your research, please cite this paper and uMLIP used.
 
 
 ## Overview
 
 This code can do:
-- **Structure Optimization**: Optimize crystal structures using various MLIPs (CHGNet, MatterSim, eSEN-30M-OAM, etc.)
-- **Formation Energy Calculation**: Calculate formation energies using MLIP-derived reference energies
-- **Convex Hull Analysis**: Calculate distance to convex hull using MLIP-derived reference energies
+- **Structure Optimization**: Optimize crystal structures using various uMLIP (CHGNet, MatterSim, eSEN-30M-OAM, etc.)
+- **Formation Energy Calculation**: Calculate formation energies using uMLIP-derived reference energies
+- **Convex Hull Analysis**: Calculate distance to convex hull using uMLIP-derived reference energies
 
 This repository also contains useful scripts for:
-- **HTP Structure Generation**: Generate structures for screening compositions from a POSCAR, CIF, or numbers as input
+- **HTP Structure Generation**: Generate structures for high-throughput screening using  POSCAR, CIF, or numbers as input
 - **Determine Global Minimum**: Determine the global minimum among local minima
   
 #### Key Features
@@ -23,13 +25,13 @@ This repository also contains useful scripts for:
 - **MPI Parallelization**: Efficient processing of large datasets through distributed computing
 - **Flexible Job Distribution**: Submit dataset chunks separately across multiple computing resources
 - **Global Minimum Determination**: Identify the lowest-energy structure from multiple optimization runs with different initial configurations
-- **Precomputed Reference Energies**: Reference energies for formation energy and hull distance calculation are precomputed, thus formation energy and hull distance calculations take negligible time cost. The reference energies were obtained by relaxing structures in OQMD database using various MLIPs. 
+- **Precomputed Reference Energies**: Reference energies for formation energy and hull distance calculation are precomputed, thus formation energy and hull distance calculations take negligible time cost. The reference energies were obtained by relaxing structures in OQMD database using various uMLIP. 
 - **Relax from different initial structures by applying strain**: Apply strain to structures before optimization starts.
 - **Primitive Cell Conversion**: The structure can be converted to primitive cell before optimization to improve efficiency
-- **No GPU device is required**: This toolkit applies pre-trained MLIPs and can run efficiently on CPU.
+- **No GPU device is required**: This toolkit applies pre-trained uMLIP and can run efficiently on CPU.
 
 
-## Supported MLIP Models
+## Supported uMLIP Models
 
 This toolkit supports the following Machine Learning Interatomic Potential models:
 
@@ -46,15 +48,15 @@ This toolkit supports the following Machine Learning Interatomic Potential model
 - **eSEN**: `esen_30m_oam`
 - **HIENet**: `hienet` 
 
-For MLIP installation instructions, please refer to the **MLIP package installation** section below.
+For uMLIP installation instructions, please refer to the **MLIP package installation** section below.
 
-The toolkit is designed with modularity in mind, allowing new MLIP models to be integrated seamlessly into the existing framework.
+The design of this toolkit allows new uMLIP models to be integrated seamlessly into the existing framework.
 
 
 
 ## Prerequisites
 
-Before using this toolkit, you need to have **Miniconda** or **Anaconda** installed on your system. They are used to create isolated Python environments for different MLIP models.
+Before using this toolkit, you need to have **Miniconda** or **Anaconda** installed on your system. They are used to create isolated Python environments for different uMLIP models.
 
 **Installing Miniconda:**
 
@@ -67,7 +69,7 @@ Before using this toolkit, you need to have **Miniconda** or **Anaconda** instal
 conda --version
 ```
 
-Once conda is installed, you can create separate environments for each MLIP model as described in the **MLIP Package Installation** section below.
+Once conda is installed, you can create separate environments for each uMLIP model as described in the **MLIP Package Installation** section below.
 
 
 ## Usage
@@ -87,15 +89,15 @@ All input files are included in `example`.
 
 ### 1. Quick Start: A simple example running all three tasks at once.
 
-#### Create Env and install MLIP
-This example uses `MatterSim` MLIP. To create the conda environment and install MatterSim, do the following.
+#### Create Env and install uMLIP
+This example uses `MatterSim` uMLIP. To create the conda environment and install MatterSim, do the following.
 
    ```bash
    conda create -n MLIP_mattersim python=3.9
    conda activate MLIP_mattersim
    pip install mattersim
    ```
- Installation instructions for other MLIPs are provided in the **MLIP Package Installation** section. We recommend installing each MLIP package in a separate conda environment. 
+ Installation instructions for other uMLIP are provided in the **MLIP Package Installation** section. We recommend installing each uMLIP package in a separate conda environment. 
 
 #### Structure optimization, formation energy, and hull distance calculation
 
@@ -150,10 +152,10 @@ hull:
 ```
 
 The `input` file must include the columns `cell`, `positions`, and `numbers`, which define the crystal structure for relaxation. 
-- **cell**: 3×3 matrix as list `[[a1,a2,a3], [b1,b2,b3], [c1,c2,c3]]`
-- **positions**: Nx3 matrix as list containing fractional coordinates `[[atom1x,atom1y,atom1z], [atom2x,atom2y,atom2z]...]`
-- **numbers**:   N length list containing atomic numbers `[atom1,atom2,...]` 
-  
+- **cell**: 3×3 matrix as a list `[[a1,a2,a3], [b1,b2,b3], [c1,c2,c3]]`
+- **positions**: an N×3 matrix as a list containing fractional coordinates `[[atom1x,atom1y,atom1z], [atom2x,atom2y,atom2z]...]`
+- **numbers**:   N‑length list containing atomic numbers `[atom1,atom2,...]` 
+
 We also provide a script which generates input csv file from POSCAR file, CIF file, or numbers (see example 5). 
 
 The toolkit writes the following output columns: `optimized_formula`, `optimized_cell`, `optimized_positions`, `optimized_numbers`, `Energy (eV/atom)`, `Formation Energy (eV/atom)`, and `Hull Distance (eV/atom)` into csv files. Progress and details are printed during execution. Outputs are appended as new columns and all original columns are preserved. We recommend including identifier columns such as `formula`, `composition`, or `ID` in the input file.
@@ -332,7 +334,7 @@ For more features of this script, please run `python ../scripts/find_global_mini
 
 ### 5. Generate input file from POSCAR, CIF, or numbers
 
-We provide a simple example in `example/generate_input` demonstrating how to generate input files. The example loads structures from POSCAR, CIF, or numbers, then creates new structures by replacing atoms with different elements. The resulting structures are saved to a CSV file that can be used directly as input to MLIP-HOT. We hope this example will help you create scripts tailored to your specific use case. To keep this document concise, detailed explanations are included in the notebook itself rather than here.  
+We provide a simple example in `example/generate_input` demonstrating how to generate input csv files. The example loads structures from POSCAR, CIF, or numbers, then creates new structures by replacing atoms with different elements. The resulting structures are saved to a CSV file that can be used directly as input to MLIP-HOT. We hope this example will help you create scripts tailored to your specific use case. To keep this document concise, detailed explanations are included in the notebook itself rather than here.  
 
 For users working with `pymatgen` structures, input files can be generated from a list of `structure` objects using the code block below. Users more familiar with `ASE` and `phonopy` can easily convert those structures to Pymatgen format using adapter functions in the `pymatgen` module.
 
@@ -435,7 +437,7 @@ pip install mattersim
 Website: https://github.com/facebookresearch/fairchem
 Website: https://huggingface.co/facebook/OMAT24/tree/main
 
-The EquiformerV2 and eSEN MLIPs are implemented within FAIRChem version 1.10.0, which can be installed as follows:
+The EquiformerV2 and eSEN uMLIP are implemented within FAIRChem version 1.10.0, which can be installed as follows:
 
 
 ```bash
@@ -445,7 +447,7 @@ pip install fairchem-core==1.10.0
 pip install torch_scatter torch_sparse torch_spline_conv torch_geometric
 ```
 
-**Note**: For EquiformerV2 and eSEN MLIPs, the trained model checkpoints are not included in the FAIRChem package and must be downloaded separately from the official website: https://huggingface.co/facebook/OMAT24/tree/main. When using these models, specify the checkpoint path with the `--checkpoint_path` flag:
+**Note**: For EquiformerV2 and eSEN uMLIP, the trained model checkpoints are not included in the FAIRChem package and must be downloaded separately from the official website: https://huggingface.co/facebook/OMAT24/tree/main. When using these models, specify the checkpoint path with the `--checkpoint_path` flag:
 
 ```bash
 mpirun -np 10 python ../scripts/MLIP_optimize.py \

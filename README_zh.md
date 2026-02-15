@@ -1,11 +1,13 @@
 [English](README.md) [日本語](README_ja.md)
-# MLIP-based High-throughput Optimization and Thermodynamics (MLIP-HOT)
 
+# MLIP-based High-throughput Optimization and Thermodynamics (MLIP-HOT)
 # 基于 MLIP 的高通量结构优化与热力学稳定性计算（MLIP-HOT）
 
 MLIP-HOT 是一个基于机器学习原子间势（Machine Learning Interatomic Potential, MLIP）的综合计算工具包，支持结构优化 （structure optimization）、形成能（formation energy）计算以及到凸包距离（distance above convex hull）计算。本工具包旨在构建用于材料发现的高通量计算流程。
 
-此方法的细节和应用展示包含在在我们的论文中：https://arxiv.org/abs/2508.20556 。如果使用或扩展 MLIP-HOT，请引用该工作。
+我们将本代码称为 MLIP-HOT，我们还提供了一个与其配套的工具 [MLIP-FTL](https://github.com/nims-spin-theory/MLIP_FTL) 。MLIP-FTL 用于从零开始或通过迁移学习来训练并应用机器学习回归模型（MLRM）进行晶体性质的预测。
+
+此方法的细节和应用展示包含在我们的论文中：https://arxiv.org/abs/2508.20556 。如果使用本代码或进行基于本代码的工作，请引用该论文以及使用的 uMLIP 模型。
 
 
 ## 概览
@@ -399,7 +401,7 @@ conda activate MLIP_7net
 pip install sevenn
 ```
 
-注意：由于收敛问题，该模型参考文件中的数值是基于 OQMD 中的结构直接使用 MLIP 计算得到的，未进行 MLIP 结构优化。
+注意：由于收敛问题，该模型参考文件中的数值是基于 OQMD 中的结构直接使用 MLIP 计算得到的，没有使用 MLIP 结构优化。
 
 
 ### HIENet
@@ -417,6 +419,8 @@ git clone https://github.com/divelab/AIRS.git
 cd AIRS/OpenMat/HIENet
 pip install .
 ```
+
+注意：由于收敛问题，该模型参考文件中的数值是基于 OQMD 中的结构直接使用 MLIP 计算得到的，没有使用 MLIP 结构优化。
 
 注意：如果遇到错误 `OSError: /lib64/libstdc++.so.6: version 'GLIBCXX_3.4.29' not found`，请运行：
 

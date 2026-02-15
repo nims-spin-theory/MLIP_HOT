@@ -1,10 +1,13 @@
 [English](README.md) [中文](README_zh.md)
+
 # MLIP-based High-throughput Optimization and Thermodynamics (MLIP-HOT)
 # MLIP に基づく高スループット最適化と熱力学安定性の計算（MLIP-HOT）
 
 MLIP-HOT は、汎用的な機械学習原子間ポテンシャル（Machine Learning Interatomic Potential, MLIP）を用いた計算のためのツールキットです。構造最適化、形成エネルギー計算、凸包からの距離（distance above convex hull）計算を含みます。本ツールキットは、材料探索のための高スループット・パイプライン構築に焦点を当てています。
 
-手法の説明とデモは論文にまとめています：https://arxiv.org/abs/2508.20556 。MLIP-HOT を利用・拡張する場合は、本論文を引用してください。
+本コードは「MLIP-HOT」と呼び、相補的なツール [MLIP-FTL](https://github.com/nims-spin-theory/MLIP_FTL) と区別します。MLIP-FTL は、機械学習回帰モデル（MLRM）の学習および適用（ゼロからの学習または転移学習）を行います。
+
+本実装およびその応用の詳細は、研究論文：https://arxiv.org/abs/2508.20556 に記載しています。MLIP-HOT を利用・拡張する場合は、当該論文と使用した uMLIP を引用してください。
 
 
 ## 概要
@@ -415,6 +418,8 @@ git clone https://github.com/divelab/AIRS.git
 cd AIRS/OpenMat/HIENet
 pip install .
 ```
+
+注：収束の問題のため、このモデルの参照ファイルの値は、OQMD の構造に対して MLIP を直接適用して得たもので、MLIP ベースの構造最適化は行っていません。
 
 注：`OSError: /lib64/libstdc++.so.6: version 'GLIBCXX_3.4.29' not found` が出た場合：
 
