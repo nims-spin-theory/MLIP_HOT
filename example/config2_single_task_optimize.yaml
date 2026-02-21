@@ -7,7 +7,7 @@ task: optimize
 model: mattersim
 
 # Optional global MPI settings (per-task overrides supported)
-mpi_nproc: 10
+mpi_nproc: 4
 
 # Stage 1: Optimization
 optimize:

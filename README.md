@@ -116,17 +116,16 @@ python $MLIP_HOT -c config1_pipeline.yaml
 ```
 If the example folder is copied to another place or the code is used in real practice, please change `MLIP_HOT=../scripts/MLIP_HOT.py` to the absolute path to `MLIP_HOT.py` on your computer.
 
-> 💡 Possible bug and fix 
+> 💡 Possible bug and fix: 
 > If you encounter an error message about a missing module, please install it. 
-> For example, if module `pyyaml` or `mpi4py`is missing, please do 
-> `pip install pyyaml` or `pip install mpi4py` 
+> For example, error message 'ModuleNotFoundError: No module named 'mpi4py' means module `mpi4py` is missing. 
+> Please do `pip install mpi4py` 
 
-> 💡 Possible bug and fix 
+> 💡 Possible bug and fix: 
 > If `optimize` task met the error:
 > `Error processing structure: Optimizer.converged() missing 1 required positional argument: 'gradient'`
 > This is due to the ASE version, please install this version:
 > `pip install ase==3.24.0`
-
 
 
 All settings are controlled by the config file `config1_pipeline.yaml`. Now, let's explain the content in this config file. 
@@ -139,7 +138,7 @@ task: pipeline
 # supported models are shown in Supported MLIP Models section
 model: mattersim
 # Optional global MPI settings, number of process
-mpi_nproc: 10
+mpi_nproc: 4
 
 # Stage 1: Optimization
 optimize:
@@ -177,7 +176,7 @@ MLIP_HOT=../scripts/MLIP_HOT.py
 python $MLIP_HOT \
     --task pipeline \
     --model mattersim \
-    --mpi_nproc 10 \
+    --mpi_nproc 4 \
     --opt.input ./example.csv \
     --opt.output ./example_result_task1 
 ```
@@ -191,7 +190,7 @@ Each stage (optimize/formation energy/hull distance) can be done separately. Exa
 ```yaml
 task: optimize
 model: mattersim
-mpi_nproc: 10
+mpi_nproc: 4
 optimize:
   input:  ./example.csv         # input csv file
   output: example_result_task2  # directory where results will be written
@@ -299,10 +298,10 @@ Another way is to apply different strains to the structure to generate different
 We provide a simple example doing this:
 
 ```bash
-MLIP_HOT=/Users/xiaoenda/WORK/y_git_repo/MLIP_HOT/scripts/MLIP_HOT.py   
+MLIP_HOT=../scripts/MLIP_HOT.py  
 python $MLIP_HOT -c config4_strain.yaml --optimize.strain "0.1" --optimize.output example_result_task4/strain1
 
-MLIP_HOT=/Users/xiaoenda/WORK/y_git_repo/MLIP_HOT/scripts/MLIP_HOT.py   
+MLIP_HOT=../scripts/MLIP_HOT.py
 python $MLIP_HOT -c config4_strain.yaml --optimize.strain "[[0.1, 0.1, 0.0], [0.1, -0.1, 0.0], [0.0, -0.1, 0.0]]" --optimize.output example_result_task4/strain2
 ```
 > 💡 Tip: This feature can be combined with `size` and `rank` demonstrated previously.

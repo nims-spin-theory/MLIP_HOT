@@ -3,6 +3,6 @@
 
 task: pipeline
 model: mattersim
-mpi_nproc: 5
+mpi_nproc: 4
 optimize:
   input:  ./example.csv         # input csv file
