@@ -2,11 +2,11 @@
 
 # MLIP-based High-throughput Optimization and Thermodynamics (MLIP-HOT)
 
-MLIP-HOT is a comprehensive toolkit for **universal Machine Learning Interatomic Potential (uMLIP) based calculations, including structure optimization, formation energy calculation, and distance above convex hull calculation**. This toolkit focuses on building a high-throughput pipeline for computational material discovery.
+MLIP-HOT is a toolkit for **universal Machine Learning Interatomic Potential (uMLIP) based calculations, including structure optimization, formation energy calculation, and distance above convex hull calculation**. This toolkit focuses on building a high-throughput pipeline for computational material discovery.
 
 We refer to this code as `MLIP-HOT`, and distinguish it from its companion [MLIP-FTL](https://github.com/nims-spin-theory/MLIP_FTL), which perform machine-learning regression model (MLRM) training and application, either from scratch or via transfer learning.
 
-This implementation and its applications are detailed in our research paper: [arXiv:2508.20556](https://arxiv.org/abs/2508.20556). If you use this code or derive work from it in your research, please cite this paper and uMLIP used.
+This implementation and its applications are detailed in our research paper: [npj Computational Materials (2026) XX:XX](https://www.nature.com/articles/s41524-026-02013-0). If you use this code or derive work from it in your research, please cite this paper and uMLIP used. Please open an issue if you encounter any bugs.
 
 
 ## Overview
@@ -434,6 +434,7 @@ pip install mattersim
 ### EquiformerV2 and eSEN
 
 Website: https://github.com/facebookresearch/fairchem
+
 Website: https://huggingface.co/facebook/OMAT24/tree/main
 
 The EquiformerV2 and eSEN uMLIP are implemented within FAIRChem version 1.10.0, which can be installed as follows:
@@ -463,6 +464,7 @@ mpirun -np 10 python ../scripts/MLIP_optimize.py \
 The **formation energy** of a compound is a thermodynamic quantity that measures the energy change when the compound is formed from its constituent elements in their standard reference states. It provides insight into the **thermodynamic stability** of a material — lower (more negative) formation energy generally indicates a more stable compound.
 
 $$ E_\text{form} = (E_{\text{compound}} - \sum_i n_i \mu_i ) /n $$
+
 where:  
 - $E_{\text{compound}}$: energy of the compound   
 - $n_i$: number of atoms of element $i$ in the compound  
@@ -488,16 +490,15 @@ If you have any questions, problems, or bugs, please open an issue in this repos
 ## Citation
 
 If you use or extend this toolkit in your research, please cite:
-
+[Need to update this after formal release]
 ```bibtex
-@misc{xiao2025accuratescreeningfunctionalmaterials,
-  title={Accurate Screening of Functional Materials with Machine-Learning Potential and Transfer-Learned Regressions: Heusler Alloy Benchmark}, 
-  author={Enda Xiao and Terumasa Tadano},
-  year={2025},
-  eprint={2508.20556},
-  archivePrefix={arXiv},
-  primaryClass={cond-mat.mtrl-sci},
-  url={https://arxiv.org/abs/2508.20556}
+@article{npjcm_2026accuratescreeningfunctionalmaterials,
+	date = {2026/02/19},
+	doi = {10.1038/s41524-026-02013-0},
+	journal = {npj Computational Materials},
+	title = {Accurate screening of functional materials with machine-learning potential and transfer-learned regressions: Heusler alloy benchmark},
+	url = {https://doi.org/10.1038/s41524-026-02013-0},
+	year = {2026},
 }
 ```
 

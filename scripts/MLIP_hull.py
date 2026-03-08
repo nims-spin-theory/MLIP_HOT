@@ -444,9 +444,9 @@ Examples:
     log_info(f"Output file: {args.output}", current_rank=rank)
     log_info(f"From input file, composition and formation energy are loaded from columns:", current_rank=rank)
     log_info(f"    '{args.composition_column_input}',{args.formE_column_input}", current_rank=rank)
-    log_info(f"From elements file, composition and energy are loaded from columns:", current_rank=rank)
+    log_info(f"From convex hull file, composition and formation energy are loaded from columns:", current_rank=rank)
     log_info(f"    '{args.composition_column_convex}',{args.formE_column_convex}", current_rank=rank)
-    log_info(f"The calculated formation energy will be stored in column:", current_rank=rank)
+    log_info(f"The calculated hull distances will be stored in column:", current_rank=rank)
     log_info(f"    '{args.out_column}'", current_rank=rank)
 
     try:

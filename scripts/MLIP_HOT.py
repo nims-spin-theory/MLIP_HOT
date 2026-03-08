@@ -394,7 +394,7 @@ def main() -> int:
 
     # Optimize overrides
     opt_grp = parser.add_argument_group("optimize overrides")
-    opt_grp.add_argument("--opt.input", dest="opt_input", type=str, help="Path to input CSV")
+    opt_grp.add_argument("--opt.input", "--optimize.input", dest="opt_input", type=str, help="Path to input CSV")
     opt_grp.add_argument("--opt.output", "--optimize.output", dest="opt_output", type=str, help="Output directory for optimized results")
     opt_grp.add_argument("--opt.size", "--optimize.size", dest="opt_size", type=int, help="Number of chunks for separate jobs")
     opt_grp.add_argument("--opt.rank", "--optimize.rank", dest="opt_rank", type=int, help="Chunk number for this job")
@@ -406,7 +406,7 @@ def main() -> int:
         type=str,
         help="Forwarded to optimizer as --print-col (prints local row number + this column's value).",
     )
-    opt_grp.add_argument("--opt.primitive_cell_conversion", dest="opt_primitive_cell_conversion", action="store_true", help="Convert to primitive cell before optimization")
+    opt_grp.add_argument("--opt.primitive_cell_conversion", "--optimize.primitive_cell_conversion", dest="opt_primitive_cell_conversion", action="store_true", help="Convert to primitive cell before optimization")
     opt_grp.add_argument(
         "--opt.fix_symmetry",
         "--optimize.fix_symmetry",
