@@ -135,7 +135,7 @@ All settings are controlled by the config file `config1_pipeline.yaml`. Now, let
 # pipeline would do optimize, form, and hull.
 task: pipeline 
 # Select interatomic potential model
-# supported models are shown in Supported MLIP Models section
+# supported models are shown in Supported uMLIP Models section
 model: mattersim
 # Optional global MPI settings, number of process
 mpi_nproc: 4
@@ -159,9 +159,9 @@ We also provide a script which generates input csv file from POSCAR file, CIF fi
 
 The toolkit writes the following output columns: `optimized_formula`, `optimized_cell`, `optimized_positions`, `optimized_numbers`, `Energy (eV/atom)`, `Formation Energy (eV/atom)`, and `Hull Distance (eV/atom)` into csv files. Progress and details are printed during execution. Outputs are appended as new columns and all original columns are preserved. We recommend including identifier columns such as `formula`, `composition`, or `ID` in the input file.
 
-Another example input containing 100 compounds is included in `example/more_input` , and the MLIP result is included in `example/results`. The top 10 rows of the result are the results of the example of 10 compounds. The results by DFT are also included for comparison.
+Another example input containing 100 compounds is included in `example/more_input` , and the uMLIP result is included in `example/results`. The top 10 rows of the result are the results of the example of 10 compounds. The results by DFT are also included for comparison.
 
-The following comparison figures of MatterSim MLIP and DFT results are generated using the Jupyter notebook `example/results/analysis.ipynb`.
+The following comparison figures of MatterSim uMLIP and DFT results are generated using the Jupyter notebook `example/results/analysis.ipynb`.
 
 ![alt text](example/results/dft_vs_ml_mattersim.png)
 
@@ -367,9 +367,9 @@ During structure optimization, the symmetry is not preserved by default. To enab
 Using `--optimize.print_col <column name>`,  the code prints the local row number and this column's value to show the progress of the optimization task. This is useful for debugging.
 
 
-## MLIP Package Installation
+## uMLIP Package Installation
 
-This section provides conda environment setup instructions for each supported MLIP model.
+This section provides conda environment setup instructions for each supported uMLIP model.
 
 ### CHGNet
 
@@ -391,7 +391,7 @@ conda activate MLIP_7net
 pip install sevenn
 ```
 
-Note: Due to convergence problem, the values in the reference file of this model were calculated using MLIP and structures in OQMD without MLIP-based optimization.
+Note: Due to convergence problem, the values in the reference file of this model were calculated using uMLIP and structures in OQMD without MLIP-based optimization.
 
 
 ### HIENet
@@ -410,7 +410,7 @@ cd AIRS/OpenMat/HIENet
 pip install .
 ```
 
-Note: Due to convergence problem, the values in the reference file of this model were calculated using MLIP and structures in OQMD without MLIP-based optimization.
+Note: Due to convergence problem, the values in the reference file of this model were calculated using uMLIP and structures in OQMD without MLIP-based optimization.
 
 
 **Troubleshooting**: If you encounter the error `OSError: /lib64/libstdc++.so.6: version 'GLIBCXX_3.4.29' not found`, run:
@@ -502,7 +502,7 @@ If you use or extend this toolkit in your research, please cite:
 }
 ```
 
-Please cite the specific MLIP models you use in your work. Refer to the official documentation for each model listed in the **MLIP Package Installation** section.
+Please cite the specific uMLIP models you use in your work. Refer to the official documentation for each model listed in the **MLIP Package Installation** section.
 
 If hull distance calculation is performed, please also cite the OQMD database following the official documentation: https://oqmd.org/documentation/publications. 
 
