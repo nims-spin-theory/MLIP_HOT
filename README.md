@@ -17,7 +17,7 @@ This code can do:
 - **Convex Hull Analysis**: Calculate distance to convex hull using uMLIP-derived reference energies
 
 This repository also contains useful scripts for:
-- **HTP Structure Generation**: Generate structures for high-throughput screening using  POSCAR, CIF, or numbers as input
+- **HTP Structure Generation**: Generate structures for high-throughput screening using  POSCAR, CIF, or arrays describing lattice vectors, atomic positions, and species as input
 - **Determine Global Minimum**: Determine the global minimum among local minima
   
 #### Key Features
@@ -82,7 +82,7 @@ We show examples covering:
 2. Run a single task
 3. Separate the job across multiple nodes for efficiency.
 4. Determine the global minimum using multiple initial structures.
-5. Generate input file from POSCAR, CIF, or numbers
+5. Generate input file from POSCAR, CIF, or arrays describing lattice vectors, atomic positions, and species
 6. Intro to some useful flags.
 
 All input files are included in `example`.
@@ -110,11 +110,11 @@ Move into the `example` folder and perform the example calculation as follows. T
 conda activate MLIP_mattersim 
 
 # set path to the entry script
-MLIP_HOT=../scripts/MLIP_HOT.py
+export MLIP_HOT=../scripts/MLIP_HOT.py
 # start computation described in the config file
 python $MLIP_HOT -c config1_pipeline.yaml 
 ```
-If the example folder is copied to another place or the code is used in real practice, please change `MLIP_HOT=../scripts/MLIP_HOT.py` to the absolute path to `MLIP_HOT.py` on your computer.
+If the example folder is copied to another place or the code is used in real practice, please change `export MLIP_HOT=../scripts/MLIP_HOT.py` to the absolute path to `MLIP_HOT.py` on your computer.
 
 > 💡 Possible bug and fix: 
 > If you encounter an error message about a missing module, please install it. 
@@ -155,7 +155,7 @@ The `input` file must include the columns `cell`, `positions`, and `numbers`, wh
 - **positions**: an N×3 matrix as a list containing fractional coordinates `[[atom1x,atom1y,atom1z], [atom2x,atom2y,atom2z]...]`
 - **numbers**:   N‑length list containing atomic numbers `[atom1,atom2,...]` 
 
-We also provide a script which generates input csv file from POSCAR file, CIF file, or numbers (see example 5). 
+We also provide a script which generates input csv file from POSCAR file, CIF file, or arrays describing lattice vectors, atomic positions, and species (see example 5). 
 
 The toolkit writes the following output columns: `optimized_formula`, `optimized_cell`, `optimized_positions`, `optimized_numbers`, `Energy (eV/atom)`, `Formation Energy (eV/atom)`, and `Hull Distance (eV/atom)` into csv files. Progress and details are printed during execution. Outputs are appended as new columns and all original columns are preserved. We recommend including identifier columns such as `formula`, `composition`, or `ID` in the input file.
 
@@ -171,7 +171,7 @@ The job can also be set using Command Line Interface (no config file); an equiva
 ```bash
 # From the example folder
 conda activate MLIP_mattersim 
-MLIP_HOT=../scripts/MLIP_HOT.py
+export MLIP_HOT=../scripts/MLIP_HOT.py
 
 python $MLIP_HOT \
     --task pipeline \
@@ -217,7 +217,7 @@ These example config files are also included in the `example` folder which can b
 
 ```bash
 conda activate MLIP_mattersim 
-MLIP_HOT=../scripts/MLIP_HOT.py
+export MLIP_HOT=../scripts/MLIP_HOT.py
 
 python $MLIP_HOT -c config2_single_task_optimize.yaml
 python $MLIP_HOT -c config2_single_task_form.yaml
@@ -261,7 +261,7 @@ An example using 3 chunks:
 
 ```bash
 conda activate MLIP_mattersim 
-MLIP_HOT=../scripts/MLIP_HOT.py
+export MLIP_HOT=../scripts/MLIP_HOT.py
 
 python $MLIP_HOT -c config3_size_rank.yaml --optimize.size 3 --optimize.rank 0
 python $MLIP_HOT -c config3_size_rank.yaml --optimize.size 3 --optimize.rank 1
@@ -298,10 +298,10 @@ Another way is to apply different strains to the structure to generate different
 We provide a simple example doing this:
 
 ```bash
-MLIP_HOT=../scripts/MLIP_HOT.py  
+export MLIP_HOT=../scripts/MLIP_HOT.py  
 python $MLIP_HOT -c config4_strain.yaml --optimize.strain "0.1" --optimize.output example_result_task4/strain1
 
-MLIP_HOT=../scripts/MLIP_HOT.py
+export MLIP_HOT=../scripts/MLIP_HOT.py
 python $MLIP_HOT -c config4_strain.yaml --optimize.strain "[[0.1, 0.1, 0.0], [0.1, -0.1, 0.0], [0.0, -0.1, 0.0]]" --optimize.output example_result_task4/strain2
 ```
 > 💡 Tip: This feature can be combined with `size` and `rank` demonstrated previously.
@@ -331,9 +331,9 @@ For more features of this script, please run `python ../scripts/find_global_mini
 
 > 💡 Tip: This script works for output of pipeline, optimize, form, and hull task.
 
-### 5. Generate input file from POSCAR, CIF, or numbers
+### 5. Generate input file from POSCAR, CIF, or arrays describing lattice vectors, atomic positions, and species
 
-We provide a simple example in `example/generate_input` demonstrating how to generate input csv files. The example loads structures from POSCAR, CIF, or numbers, then creates new structures by replacing atoms with different elements. The resulting structures are saved to a CSV file that can be used directly as input to MLIP-HOT. We hope this example will help you create scripts tailored to your specific use case. To keep this document concise, detailed explanations are included in the notebook itself rather than here.  
+We provide a simple example in `example/generate_input` demonstrating how to generate input csv files. The example loads structures from POSCAR, CIF, or arrays describing lattice vectors, atomic positions, and species, then creates new structures by replacing atoms with different elements. The resulting structures are saved to a CSV file that can be used directly as input to MLIP-HOT. We hope this example will help you create scripts tailored to your specific use case. To keep this document concise, detailed explanations are included in the notebook itself rather than here.  
 
 For users working with `pymatgen` structures, input files can be generated from a list of `structure` objects using the code block below. Users more familiar with `ASE` and `phonopy` can easily convert those structures to Pymatgen format using adapter functions in the `pymatgen` module.
 

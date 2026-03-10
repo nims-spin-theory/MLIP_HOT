@@ -18,7 +18,7 @@ MLIP-HOTを利用・拡張した内容を出版される際には、当該論文
 - **凸包解析**：uMLIP由来の参照エネルギーを用いて凸包からの距離を計算
 
 また、以下の用途に役立つスクリプトも含まれています：
-- **HTP 構造生成**：POSCAR、CIF、または数字入力から、組成スクリーニング用の構造を生成
+- **HTP 構造生成**：POSCAR、CIF、または格子ベクトル、原子位置、元素種を表す数値配列から、組成スクリーニング用の構造を生成
 - **グローバル最小の決定**：複数の局所最小の中から全体の最小（最低エネルギー構造）を決定
   
 #### 主な特徴
@@ -82,7 +82,7 @@ MLIP-HOTでは単一のエントリポイント（`scripts/MLIP_HOT.py`）を提
 2. 単一タスクのみ実行
 3. 複数ノードへジョブ分割
 4. 複数初期構造からの最安定構造決定
-5. POSCAR / CIF / 数字入力による入力ファイル生成
+5. POSCAR / CIF / 格子ベクトル、原子位置、元素種を表す数値配列による入力ファイル生成
 6. 便利なフラグの紹介
 
 入力ファイルはすべて `example` に含まれています。
@@ -156,7 +156,7 @@ hull:
 - **positions**：N×3 行列（リスト、分率座標）`[[atom1x,atom1y,atom1z], [atom2x,atom2y,atom2z]...]`
 - **numbers**：長さNの原子番号リスト `[atom1,atom2,...]`
   
-POSCAR / CIF / numbers から入力 CSV を生成するスクリプトも提供しています（例 5）。
+POSCAR / CIF / 格子ベクトル、原子位置、元素種を表す数値配列 から入力 CSV を生成するスクリプトも提供しています（例 5）。
 
 出力として、`optimized_formula`、`optimized_cell`、`optimized_positions`、`optimized_numbers`、`Energy (eV/atom)`、`Formation Energy (eV/atom)`、`Hull Distance (eV/atom)` の列をCSVに書き込みます。実行中は進捗の詳細が表示されます。出力は新しい列として追加され、元の列はすべて保持されます。入力に `formula`、`composition`、`ID` などの識別列を入れることを推奨します。
 
@@ -336,9 +336,9 @@ python  ../scripts/find_global_minimum.py \
 
 > 💡 Tip：このスクリプトは pipeline / optimize / form / hull の出力に対応します。
 
-### 5. POSCAR / CIF / 数字入力から入力ファイル生成
+### 5. POSCAR / CIF / 格子ベクトル、原子位置、元素種を表す数値配列から入力ファイル生成
 
-`example/generate_input` に、入力ファイル生成の簡単な例があります。POSCAR / CIF / numbers から構造を読み込み、元素置換で新しい構造を生成し、CSV に保存して MLIP-HOT の入力として使えます。用途に合わせたスクリプト作成の参考になれば幸いです。簡潔さを優先し、詳細な説明は例の中に記載しています。
+`example/generate_input` に、入力ファイル生成の簡単な例があります。POSCAR / CIF / 格子ベクトル、原子位置、元素種を表す数値配列 から構造を読み込み、元素置換で新しい構造を生成し、CSV に保存して MLIP-HOT の入力として使えます。用途に合わせたスクリプト作成の参考になれば幸いです。簡潔さを優先し、詳細な説明は例の中に記載しています。
 
 `pymatgen` を使うユーザーは、`structure` オブジェクトのリストから以下のコードで入力 CSV を作れます。`ASE` や `phonopy` のユーザーも、`pymatgen` のアダプタ関数で変換できます。
 
@@ -498,14 +498,13 @@ $$ E_\text{hull} = E_\text{form} - E_\text{form}^\text{(hull)} $$
 研究で本ツールキットを利用・拡張する場合は以下を引用してください：
 
 ```bibtex
-@misc{xiao2025accuratescreeningfunctionalmaterials,
-  title={Accurate Screening of Functional Materials with Machine-Learning Potential and Transfer-Learned Regressions: Heusler Alloy Benchmark}, 
-  author={Enda Xiao and Terumasa Tadano},
-  year={2025},
-  eprint={2508.20556},
-  archivePrefix={arXiv},
-  primaryClass={cond-mat.mtrl-sci},
-  url={https://arxiv.org/abs/2508.20556}
+@article{npjcm_2026accuratescreeningfunctionalmaterials,
+	date = {2026/02/19},
+	doi = {10.1038/s41524-026-02013-0},
+	journal = {npj Computational Materials},
+	title = {Accurate screening of functional materials with machine-learning potential and transfer-learned regressions: Heusler alloy benchmark},
+	url = {https://doi.org/10.1038/s41524-026-02013-0},
+	year = {2026},
 }
 ```
 
