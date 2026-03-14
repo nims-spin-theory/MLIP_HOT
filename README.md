@@ -444,17 +444,15 @@ The EquiformerV2 and eSEN uMLIP are implemented within FAIRChem version 1.10.0, 
 conda create -n MLIP_fairchem python=3.9
 conda activate MLIP_fairchem
 pip install fairchem-core==1.10.0
-pip install torch_scatter torch_sparse torch_spline_conv torch_geometric
+pip install torch==2.4.1  --index-url https://download.pytorch.org/whl/cpu
+pip install torch-scatter torch-sparse torch-spline-conv -f https://data.pyg.org/whl/torch-2.4.1+cpu.html
+pip install torch-cluster torch_geometric -f https://data.pyg.org/whl/torch-2.4.1+cpu.html
 ```
 
-**Note**: For EquiformerV2 and eSEN uMLIP, the trained model checkpoints are not included in the FAIRChem package and must be downloaded separately from the official website: https://huggingface.co/facebook/OMAT24/tree/main. When using these models, specify the checkpoint path with the `--checkpoint_path` flag:
+**Note**: For EquiformerV2 and eSEN uMLIP, the trained model checkpoints are not included in the FAIRChem package and must be downloaded separately from the official website: https://huggingface.co/facebook/OMAT24/tree/main. When using these models, specify the checkpoint path with the `--opt.checkpoint_path` flag:
 
 ```bash
-mpirun -np 10 python ../scripts/MLIP_optimize.py \
-    -d ./example/example_data.csv \
-    -m "eqV2_31M_omat" \
-    -o "opt_results" \
-    --checkpoint_path ./fairchem_checkpoints/eqV2_31M_omat.pt
+    --opt.checkpoint_path ./fairchem_checkpoints/eqV2_31M_omat.pt
 ```
 
 
