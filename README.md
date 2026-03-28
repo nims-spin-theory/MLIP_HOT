@@ -6,7 +6,7 @@ MLIP-HOT is a toolkit for **universal Machine Learning Interatomic Potential (uM
 
 We refer to this code as `MLIP-HOT`, and distinguish it from its companion [MLIP-FTL](https://github.com/nims-spin-theory/MLIP_FTL), which perform machine-learning regression model (MLRM) training and application, either from scratch or via transfer learning.
 
-This implementation and its applications are detailed in our research paper: [npj Computational Materials (2026) XX:XX](https://www.nature.com/articles/s41524-026-02013-0). If you use this code or derive work from it in your research, please cite this paper and uMLIP used. Please open an issue if you encounter any bugs.
+This implementation and its applications are detailed in our research paper: [npj Computational Materials (2026) 12:133](https://www.nature.com/articles/s41524-026-02013-0). If you use this code or derive work from it in your research, please cite this paper and uMLIP used. Please open an issue if you encounter any bugs.
 
 
 ## Overview
@@ -488,17 +488,7 @@ If you have any questions, problems, or bugs, please open an issue in this repos
 ## Citation
 
 If you use or extend this toolkit in your research, please cite:
-[Need to update this after formal release]
-```bibtex
-@article{npjcm_2026accuratescreeningfunctionalmaterials,
-	date = {2026/02/19},
-	doi = {10.1038/s41524-026-02013-0},
-	journal = {npj Computational Materials},
-	title = {Accurate screening of functional materials with machine-learning potential and transfer-learned regressions: Heusler alloy benchmark},
-	url = {https://doi.org/10.1038/s41524-026-02013-0},
-	year = {2026},
-}
-```
+> Xiao, E., Tadano, T. Accurate screening of functional materials with machine-learning potential and transfer-learned regressions: Heusler alloy benchmark. npj Comput Mater 12, 133 (2026). https://doi.org/10.1038/s41524-026-02013-0
 
 Please cite the specific uMLIP models you use in your work. Refer to the official documentation for each model listed in the **MLIP Package Installation** section.
 

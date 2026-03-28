@@ -7,7 +7,7 @@ MLIP-HOT 是一个基于通用机器学习原子间势（Universal Machine Learn
 
 我们将本代码称为 MLIP-HOT，我们还提供了一个与其配套的工具 [MLIP-FTL](https://github.com/nims-spin-theory/MLIP_FTL)。MLIP-FTL 用于从零开始或通过迁移学习来训练并应用机器学习回归模型（MLRM）进行晶体性质的预测。
 
-此方法的细节和应用展示包含在我们的论文中：[npj Computational Materials (2026) XX:XX](https://www.nature.com/articles/s41524-026-02013-0)。如果使用本代码或进行基于本代码的工作，请引用该论文以及使用的 uMLIP 模型。
+此方法的细节和应用展示包含在我们的论文中：[npj Computational Materials (2026) 12:133](https://www.nature.com/articles/s41524-026-02013-0)。如果使用本代码或进行基于本代码的工作，请引用该论文以及使用的 uMLIP 模型。
 
 
 ## 概览
@@ -496,17 +496,8 @@ $$ E_\text{hull} = E_\text{form} - E_\text{form}^\text{(hull)} $$
 ## 引用
 
 如果你在研究中使用或扩展本工具包，请引用：
+> Xiao, E., Tadano, T. Accurate screening of functional materials with machine-learning potential and transfer-learned regressions: Heusler alloy benchmark. npj Comput Mater 12, 133 (2026). https://doi.org/10.1038/s41524-026-02013-0
 
-```bibtex
-@article{npjcm_2026accuratescreeningfunctionalmaterials,
-	date = {2026/02/19},
-	doi = {10.1038/s41524-026-02013-0},
-	journal = {npj Computational Materials},
-	title = {Accurate screening of functional materials with machine-learning potential and transfer-learned regressions: Heusler alloy benchmark},
-	url = {https://doi.org/10.1038/s41524-026-02013-0},
-	year = {2026},
-}
-```
 
 请同时引用你所使用的具体 uMLIP 模型。相关信息见 **uMLIP 包安装** 章节中每个模型的官方文档。
 

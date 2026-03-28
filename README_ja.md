@@ -7,7 +7,7 @@ MLIP-HOTは、汎用的機械学習原子間ポテンシャル（Universal Machi
 
 本ツール「MLIP-HOT」に加えて、機械学習回帰モデル（MLRM）の学習・適用（ゼロからの学習または転移学習）を行う相補的なツール [MLIP-FTL](https://github.com/nims-spin-theory/MLIP_FTL) も公開しています。ぜひご覧ください。
 
-MLIP-HOTとMLIP-FTLの実装および応用の詳細は、[npj Computational Materials (2026) XX:XX](https://www.nature.com/articles/s41524-026-02013-0) に記載しています。
+MLIP-HOTとMLIP-FTLの実装および応用の詳細は、[npj Computational Materials (2026) 12:133](https://www.nature.com/articles/s41524-026-02013-0) に記載しています。
 MLIP-HOTを利用・拡張した内容を出版される際には、当該論文（および利用したuMLIP）を引用していただけますと幸いです。
 
 ## 概要
@@ -494,17 +494,8 @@ $$ E_\text{hull} = E_\text{form} - E_\text{form}^\text{(hull)} $$
 ## 引用
 
 研究で本ツールキットを利用・拡張する場合は以下を引用してください：
+> Xiao, E., Tadano, T. Accurate screening of functional materials with machine-learning potential and transfer-learned regressions: Heusler alloy benchmark. npj Comput Mater 12, 133 (2026). https://doi.org/10.1038/s41524-026-02013-0
 
-```bibtex
-@article{npjcm_2026accuratescreeningfunctionalmaterials,
-	date = {2026/02/19},
-	doi = {10.1038/s41524-026-02013-0},
-	journal = {npj Computational Materials},
-	title = {Accurate screening of functional materials with machine-learning potential and transfer-learned regressions: Heusler alloy benchmark},
-	url = {https://doi.org/10.1038/s41524-026-02013-0},
-	year = {2026},
-}
-```
 
 使用する uMLIP モデルについても、各モデルの公式ドキュメントに従って引用してください（**uMLIP パッケージのインストール** 参照）。
 
