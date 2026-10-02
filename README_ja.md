@@ -48,6 +48,9 @@ MLIP-HOTを利用・拡張した内容を出版される際には、当該論文
   - `eqV2_153M_omat_mp_salex` 
 - **eSEN**：`esen_30m_oam`
 - **HIENet**：`hienet` 
+- **Prophet**：
+  - `prophet` 
+  - `prophet-spin` 
 
 uMLIPのインストール方法は、下の**uMLIPパッケージのインストール**を参照してください。
 
@@ -461,6 +464,38 @@ mpirun -np 10 python ../scripts/MLIP_optimize.py \
     -o "opt_results" \
     --checkpoint_path ./fairchem_checkpoints/eqV2_31M_omat.pt
 ```
+
+
+### Prophet
+
+Website: https://github.com/kairosmaterial/prophet
+
+Website: https://huggingface.co/kairosmaterial/prophet
+
+```bash
+conda create -n MLIP_prophet python=3.11
+conda activate MLIP_prophet
+pip install "prophet-mlip @ git+https://github.com/kairosmaterial/prophet.git"
+# MLIP-HOT に必要な追加パッケージ
+pip install pandas spglib mpi4py pymatgen pyyaml
+```
+
+**注**：`prophet-mlip` は `ase>=3.29` を要求し、自動的にインストールされます。この環境では `ase==3.24.0` にダウングレードしないでください。Prophet モデルは新しい ASE バージョンで動作します。
+
+**注**：学習済みチェックポイントはパッケージに含まれず、公式サイトから別途ダウンロードが必要です：https://huggingface.co/kairosmaterial/prophet 。使用時は `--checkpoint_path` でパスを指定します：
+
+```bash
+# Prophet（チェックポイント：prophet-oame-mbd.pt）
+mpirun -np 10 python ../scripts/MLIP_optimize.py \
+    -i ./example/example_data.csv \
+    -m "prophet" \
+    -o "opt_results" \
+    --checkpoint_path ./Prophet_checkpoints/prophet-oame-mbd.pt
+```
+
+**Prophet-Spin**（`prophet-spin`、チェックポイント：`prophet-v1-mag.pt`）は、指定された磁気配置に対するエネルギー・力・応力を予測するスピン依存モデルです。入力 CSV には `cell`、`positions`、`numbers` に加えて、各原子の初期磁気モーメントを指定する `magmoms` 列が必要です：共線形モーメントの場合は N 要素のリスト（例：`[2.5, -2.5]`）、非共線形の場合は N×3 のリストです。`--primitive-cell-conversion` フラグは、原子の再インデックスにより `magmoms` 列との対応が崩れるため、`prophet-spin` ではサポートされません。
+
+**注**：Prophet モデル用の参照エネルギーファイル（`referenceDB/OQMD_prophet_*.csv`）はまだ用意されていないため、現在は `optimize` タスクのみサポートされています。生成エネルギーおよび凸包距離の計算には、先にこれらの参照ファイルを生成する必要があります。
 
 
 ## 熱力学安定性指標：生成エネルギーと凸包

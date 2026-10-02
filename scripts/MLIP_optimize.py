@@ -59,7 +59,7 @@ DEFAULT_MAX_STEPS = 200
 # Supported ML models
 SUPPORTED_MODELS = {
     'chgnet', '7net-0', '7net-l3i5', '7net-mf-ompa', 'mattersim', 
-    'hienet', 'eqV2', 'esen_30m_oam'
+    'hienet', 'eqV2', 'esen_30m_oam', 'prophet', 'prophet-spin'
 }
 
 # Models that support specific patterns
@@ -332,6 +332,49 @@ def create_calculator(model: str, checkpoint_path: Optional[str] = None) -> Calc
             from hienet.hienet_calculator import HIENetCalculator
             return HIENetCalculator()
         
+        elif model in ('prophet', 'prophet-spin'):
+            if checkpoint_path is None:
+                raise ValueError(
+                    f"Model '{model}' requires a checkpoint file. "
+                    f"Please provide the path using --checkpoint_path argument."
+                )
+            if not os.path.exists(checkpoint_path):
+                raise FileNotFoundError(
+                    f"Checkpoint file not found: {checkpoint_path}\n"
+                    f"Please ensure the file exists and the path is correct."
+                )
+            if model == 'prophet':
+                from prophet import KairosCalculator
+                # use_kernel=False selects the pure e3nn path, which runs on CPU
+                return KairosCalculator(model_path=checkpoint_path, use_kernel=False, device="cpu")
+            from prophet_spin import SpinCalculator
+            from prophet_spin import adapter as _spin_adapter
+            # prophet_spin lacks a use_kernel option; force the e3nn path so the
+            # CUDA-only openequivariance import is skipped (weights are compatible,
+            # '.tp.' kernel keys are already dropped by load_spin_model).
+            _orig_load = _spin_adapter.load_spin_model
+
+            def _load_spin_model_cpu(path):
+                import io as _io
+                import json as _json
+                import torch as _torch
+                with open(path, "rb") as f:
+                    config = _json.loads(f.readline().decode())
+                    state_dict = _torch.load(_io.BytesIO(f.read()), map_location="cpu")
+                config["kernel"] = False
+                model_obj = _spin_adapter.ProphetSpin(config)
+                state_dict = {k: v for k, v in state_dict.items() if ".tp." not in k}
+                model_obj.load_state_dict(state_dict, strict=False)
+                model_obj.eval()
+                return model_obj, config
+
+            import prophet_spin.runtime as _spin_runtime
+            _spin_runtime.load_spin_model = _load_spin_model_cpu
+            try:
+                return SpinCalculator(model_path=checkpoint_path, device="cpu")
+            finally:
+                _spin_runtime.load_spin_model = _orig_load
+        
         else:
             raise ValueError(f"Unsupported model: {model}")
             
@@ -389,6 +432,19 @@ def opt_loop_row(
             
             # Convert to ASE and optimize
             atoms = AseAtomsAdaptor.get_atoms(structure)
+            if model == 'prophet-spin':
+                magmoms_raw = row.get('magmoms') if isinstance(row, dict) else None
+                if magmoms_raw is None or (isinstance(magmoms_raw, float) and np.isnan(magmoms_raw)):
+                    raise ValueError(
+                        "Model 'prophet-spin' requires a 'magmoms' column in the input CSV "
+                        "(N-length list for collinear or Nx3 list for non-collinear moments)."
+                    )
+                magmoms = np.array(ast.literal_eval(str(magmoms_raw)))
+                if len(magmoms) != len(atoms):
+                    raise ValueError(
+                        f"'magmoms' length {len(magmoms)} does not match number of atoms {len(atoms)}."
+                    )
+                atoms.set_initial_magnetic_moments(magmoms)
             atoms_opt = opt_with_symmetry_mod(atoms, calc, fix_symmetry=fix_symmetry)
             final_structure = AseAtomsAdaptor.get_structure(atoms_opt)
             
@@ -485,7 +541,7 @@ def main():
         required=True, 
         help="ML-FF model name (chgnet, 7net-0, 7net-l3i5, 7net-mf-ompa, "
              "mattersim, eqV2_31M/86M/153M_omat, eqV2_31M/86M/153M_omat_mp_salex, "
-             "esen_30m_oam, hienet)"
+             "esen_30m_oam, hienet, prophet, prophet-spin)"
     )
     parser.add_argument(
         "-o", "--output", 
@@ -526,9 +582,10 @@ def main():
         "--checkpoint_path",
         type=str,
         default=None,
-        help="Path to the checkpoint file for eqV2 or esen_30m_oam models. "
-             "Required when using eqV2_* or esen_30m_oam models. "
-             "Example: './fairchem_checkpoints/eqV2_31M_omat.pt'"
+        help="Path to the checkpoint file for eqV2, esen_30m_oam, prophet, or prophet-spin models. "
+             "Required when using eqV2_*, esen_30m_oam, prophet, or prophet-spin models. "
+             "Examples: './fairchem_checkpoints/eqV2_31M_omat.pt', "
+             "'./Prophet_checkpoints/prophet-oame-mbd.pt'"
     )
 
     # Control symmetry constraint during optimization.
@@ -556,9 +613,15 @@ def main():
         return
         
     # Validate checkpoint_path for models that require it
-    if ('eqV2' in args.model or 'esen_30m_oam' in args.model) and args.checkpoint_path is None:
+    if ('eqV2' in args.model or 'esen_30m_oam' in args.model
+            or args.model in ('prophet', 'prophet-spin')) and args.checkpoint_path is None:
         parser.error(f"Model '{args.model}' requires --checkpoint_path argument. "
                     f"Please provide the path to the checkpoint file.")
+
+    # Primitive cell conversion may reduce/reorder atoms, desyncing the 'magmoms' column
+    if args.model == 'prophet-spin' and args.primitive_cell_conversion:
+        parser.error("Model 'prophet-spin' does not support --primitive-cell-conversion "
+                     "because atom reindexing would desync the 'magmoms' column.")
 
     # Parse strain argument - convert to float if scalar, numpy array if matrix; None means no strain
     if args.strain is not None:

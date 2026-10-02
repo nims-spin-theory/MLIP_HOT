@@ -47,6 +47,9 @@ This toolkit supports the following Machine Learning Interatomic Potential model
   - `eqV2_153M_omat_mp_salex` 
 - **eSEN**: `esen_30m_oam`
 - **HIENet**: `hienet` 
+- **Prophet**:
+  - `prophet` 
+  - `prophet-spin` 
 
 For uMLIP installation instructions, please refer to the **MLIP package installation** section below.
 
@@ -456,6 +459,38 @@ mpirun -np 10 python ../scripts/MLIP_optimize.py \
     -o "opt_results" \
     --checkpoint_path ./fairchem_checkpoints/eqV2_31M_omat.pt
 ```
+
+
+### Prophet
+
+Website: https://github.com/kairosmaterial/prophet
+
+Website: https://huggingface.co/kairosmaterial/prophet
+
+```bash
+conda create -n MLIP_prophet python=3.11
+conda activate MLIP_prophet
+pip install "prophet-mlip @ git+https://github.com/kairosmaterial/prophet.git"
+# additional packages required by MLIP-HOT
+pip install pandas spglib mpi4py pymatgen pyyaml
+```
+
+**Note**: `prophet-mlip` requires `ase>=3.29`, which is installed automatically. Do not downgrade to `ase==3.24.0` in this environment; the Prophet models work with the newer ASE versions.
+
+**Note**: The trained model checkpoints are not included in the package and must be downloaded separately from the official website: https://huggingface.co/kairosmaterial/prophet. When using these models, specify the checkpoint path with the `--checkpoint_path` flag:
+
+```bash
+# Prophet (checkpoint: prophet-oame-mbd.pt)
+mpirun -np 10 python ../scripts/MLIP_optimize.py \
+    -i ./example/example_data.csv \
+    -m "prophet" \
+    -o "opt_results" \
+    --checkpoint_path ./Prophet_checkpoints/prophet-oame-mbd.pt
+```
+
+**Prophet-Spin** (`prophet-spin`, checkpoint: `prophet-v1-mag.pt`) is a spin-dependent model that predicts energies, forces, and stresses for a specified magnetic configuration. In addition to `cell`, `positions`, and `numbers`, the input CSV must include a `magmoms` column specifying the initial magnetic moment of each atom: an N-length list for collinear moments (e.g. `[2.5, -2.5]`) or an N×3 list for non-collinear moments. The `--primitive-cell-conversion` flag is not supported for `prophet-spin` because atom reindexing would desync the `magmoms` column.
+
+**Note**: Reference energy files (`referenceDB/OQMD_prophet_*.csv`) are not yet available for Prophet models, so only the `optimize` task is currently supported; formation energy and hull distance calculations require generating these reference files first.
 
 
 ## Thermodynamic Stability Metrics: Formation Energy and Convex Hull

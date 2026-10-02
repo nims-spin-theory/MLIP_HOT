@@ -48,6 +48,9 @@ MLIP-HOT 是一个基于通用机器学习原子间势（Universal Machine Learn
   - `eqV2_153M_omat_mp_salex` 
 - **eSEN**：`esen_30m_oam`
 - **HIENet**：`hienet` 
+- **Prophet**：
+  - `prophet` 
+  - `prophet-spin` 
 
 关于 uMLIP 的安装说明，请参见下方的 **uMLIP 包安装** 章节。
 
@@ -463,6 +466,38 @@ mpirun -np 10 python ../scripts/MLIP_optimize.py \
     -o "opt_results" \
     --checkpoint_path ./fairchem_checkpoints/eqV2_31M_omat.pt
 ```
+
+
+### Prophet
+
+Website: https://github.com/kairosmaterial/prophet
+
+Website: https://huggingface.co/kairosmaterial/prophet
+
+```bash
+conda create -n MLIP_prophet python=3.11
+conda activate MLIP_prophet
+pip install "prophet-mlip @ git+https://github.com/kairosmaterial/prophet.git"
+# MLIP-HOT 所需的额外依赖包
+pip install pandas spglib mpi4py pymatgen pyyaml
+```
+
+**注意**：`prophet-mlip` 要求 `ase>=3.29`，安装时会自动安装。请不要在此环境中降级到 `ase==3.24.0`；Prophet 模型可在较新的 ASE 版本下正常工作。
+
+**注意**：训练好的模型检查点不包含在安装包中，需要从官网单独下载：https://huggingface.co/kairosmaterial/prophet。使用这些模型时，请用 `--checkpoint_path` 指定检查点路径：
+
+```bash
+# Prophet（检查点：prophet-oame-mbd.pt）
+mpirun -np 10 python ../scripts/MLIP_optimize.py \
+    -i ./example/example_data.csv \
+    -m "prophet" \
+    -o "opt_results" \
+    --checkpoint_path ./Prophet_checkpoints/prophet-oame-mbd.pt
+```
+
+**Prophet-Spin**（`prophet-spin`，检查点：`prophet-v1-mag.pt`）是自旋依赖模型，可在指定磁构型下预测能量、力和应力。输入 CSV 除 `cell`、`positions`、`numbers` 外，还必须包含 `magmoms` 列，用于指定每个原子的初始磁矩：共线磁矩为 N 长度列表（例如 `[2.5, -2.5]`），非共线磁矩为 N×3 列表。`prophet-spin` 不支持 `--primitive-cell-conversion` 标志，因为原子重新编号会导致 `magmoms` 列失配。
+
+**注意**：Prophet 模型的参考能量文件（`referenceDB/OQMD_prophet_*.csv`）尚未提供，因此目前仅支持 `optimize` 任务；形成能和凸包距离计算需要先生成这些参考文件。
 
 
 ## 热力学稳定性指标：形成能与凸包
